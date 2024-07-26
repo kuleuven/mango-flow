@@ -114,7 +114,7 @@ def irods_ingest_move_data_object(
 def make_collection_p(irods_session: iRODSSession, path, acls: dict = {}):
     """
     a mkdir -p equivalent for collections
-    Take advantage that only the existence of the top collection 
+    Take advantage that only the existence of the deepest collection 
     needs to be tested, the parents will be automatically created if
     they do not exist
     """
@@ -224,13 +224,13 @@ def write_to_local_tar_archive(
     """ see bulk operations as well as copy in mango_flow, move to general lib instead? """
     pass
 
+
 @shared_task(name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask)
-def wrap_irods_ingest_move_data_object(self, **kwargs):
+def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     """
     @Important! Destination template must include the object name, the collections must exist already
     @todo: split the destination templates into collection path and object naming
     """
-    path = kwargs["path"]
     path_regex = kwargs.pop("path_regex")
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]
@@ -239,7 +239,7 @@ def wrap_irods_ingest_move_data_object(self, **kwargs):
     if result := re.search(processed_regex, path):
         result_dict = result.groupdict()
         dst_template = kwargs.pop("dst_template")
-        dst_path = construct_destination_path(dst_template, result_dict)
+        dst_path = construct_destination_path(dst_template, **result_dict)
         client_user = kwargs.pop("client_user", None)
         zone = pathlib.Path(path).parts[1]
         irods_session = get_zone_operator_session(zone, client_user=client_user)
@@ -258,10 +258,9 @@ def wrap_irods_ingest_move_data_object(self, **kwargs):
 
 
 @shared_task(name="mango_flow.irods.ingest_copy_data_object", bind=True, base=MangoFlowTask)
-def wrap_irods_ingest_copy_data_object(self, **kwargs):
+def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     """"""
    
-    path = kwargs["path"]
     path_regex = kwargs.pop("path_regex")
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]

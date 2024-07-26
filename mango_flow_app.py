@@ -1,18 +1,16 @@
 # This app should be launched from the Mango Portal project root
 
 from celery import Celery, shared_task
-from celery.canvas import chain
+from celery.canvas import chain, signature
 from importlib import import_module
 from plugins.mango_flow.bootstrap_config import get_beat_configs
 
 import logging
 import os
 
-# kafka_broker = os.getenv('KAFKA_BROKER', 'confluentkafka://localhost:29092')
-# rabbitmq_broker = "amqp://mango_flow:mango_flow@localhost:5672/mango_flow"
+
 broker = os.environ.get("MANGO_FLOW_BROKER", "redis://localhost:6379/0")
 backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
-# db_backend = "db+mysql://kafka:kafka@localhost/kafka"
 
 mf_logger = logging.getLogger(__name__)
 
@@ -39,6 +37,18 @@ def mango_flow_heartbeat() -> str:
 @shared_task(name="mango_flow.schedule.heartbeat")
 def mango_flow_schedule_heartbeat() -> str:
     return "All is fine"
+
+@shared_task(name="mango_flow.irods.chain.path", bind = True)
+def mango_flow_chain_path_tasks(self, path: str, tasks: list):
+    """"""
+    start_task = tasks.pop(0)
+    # the entrypoint of the chain includes the (initial) path ast the first argument
+    task_chain = signature(start_task['name'], args = [path], kwargs = start_task['parameters'])
+    for task in tasks:
+        # the rest are signature partials, the output of the first task will be injected as the first arg in the next
+        task_chain.link(signature(task['name'], kwargs = task['parameters']))
+    
+    task_chain.apply_async()
 
 beat_schedule = {
     "hearbeat-120-seconds": {

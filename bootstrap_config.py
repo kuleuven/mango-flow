@@ -23,20 +23,32 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     if not(item_config.get('trigger', None) and item_config['trigger'].get('beat', None)):
         return False
 
-    beatconfig = item_config['trigger']['beat']
-    beatconfig['kwargs']= {'subtree': item_config['match']['subtree']}
+    client_user =item_config['trigger']['beat'].pop('client_user', None)
+    beatconfig = item_config['trigger']['beat'] # delivers task name and schedule
+    
+    beatconfig['kwargs']= {'subtree': item_config['match']['subtree'], 'client_user': client_user}
+
     if (flow:=item_config.get('flow', None)) and item_config['flow'].get('mode') == 'single':
         beatconfig['kwargs'] |= {'wf_action': flow['action']['name']}
-        beatconfig['kwargs'] |= flow['action']['parameters']
-        if client_user :=flow['action'].get('client_user', None):
-            beatconfig['kwargs']['client_user'] = client_user
-    else:
-        return False
-    #except Exception as e:
-    #    print(e)
-    #    return False
+        if client_user and (not 'client_user' in flow['action']['parameters'].keys()):
+            flow['action']['parameters']['client_user'] = client_user
+        beatconfig['kwargs'] |= {'kwargs': flow['action']['parameters']}
+        return beatconfig
+    
+    if (flow:=item_config.get('flow', None)) and item_config['flow'].get('mode') == 'chain':
+        # propagate/inject client_user if needed
+        for task in flow['action']:
+            if client_user and 'client_user' not in task['parameters']:
+                task['parameters']['client_user'] = client_user
+        # now call the task chain
+        beatconfig['kwargs'] |= {'wf_action': 'mango_flow.irods.chain.path', 'kwargs' : {'tasks': flow['action']}}
+        return beatconfig
 
-    return beatconfig
+        
+
+        
+
+    return False
 
 def get_beat_configs(mango_global_config_file_name):
     mango_global_config_file = pathlib.Path(mango_global_config_file_name)

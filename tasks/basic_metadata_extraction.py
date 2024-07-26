@@ -128,8 +128,7 @@ def bulk_add_metadata(item : iRODSDataObject| iRODSCollection, metadata_items: d
 
 
 @shared_task(name="mango_flow.irods.extract_metadata_path", bind=True, base=MangoFlowTask)
-def wrap_extract_metadata_from_path(self, **kwargs):
-    path = kwargs["path"]
+def wrap_extract_metadata_from_path(self, path, **kwargs):
     path_regex = kwargs["path_regex"]
 
     if not re.search(path_regex, path):
@@ -151,8 +150,7 @@ def wrap_extract_metadata_from_path(self, **kwargs):
 
 
 @shared_task(name="mango_flow.irods.extract_metadata_marked_text_file_header", bind=True, base=MangoFlowTask)
-def wrap_extract_metadata_from_marked_file_header(self, **kwargs):
-    path = kwargs.pop("path")
+def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
     path_regex = kwargs.pop('path_regex')
     if not re.search(path_regex, path):
         return path

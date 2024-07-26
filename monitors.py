@@ -16,7 +16,7 @@ from .import MangoFlowTask
 def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
     path = pathlib.Path(subtree)
     zone = path.parts[1]
-    client_user = kwargs.get("client_user", None)
+    client_user = kwargs.pop("client_user", None)
     try:
         irods_session = get_zone_operator_session(zone, client_user=client_user)
     except Exception as e:
@@ -57,9 +57,9 @@ def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
 
     do_paths = set(do_paths) # remove duplicates
     for do_path in do_paths:
-        kwargs["path"] = do_path
+        args = [do_path]
         app : Celery = current_app
-        task : signature = app.signature(wf_action, args, kwargs)
+        task : signature = app.signature(wf_action, args, kwargs['kwargs'])
         task.apply_async()
         #current_app.send_task(name=wf_action, args=args, kwargs=kwargs)
 
