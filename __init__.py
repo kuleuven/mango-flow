@@ -1,6 +1,6 @@
 import celery
 import irods.exception
-
+import pathlib
 class MangoFlowTask(celery.Task):
     """Custom implementation of a celery Task class"""
 
@@ -10,4 +10,3 @@ class MangoFlowTask(celery.Task):
     # retry_jitter = True  # default, avoid thermonuclear reactions
 
         
-

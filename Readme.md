@@ -16,8 +16,6 @@ redis server, python celery and friends
 
 Redis commander listens by default on port 8081 
 
-`
-
 http://localhost:8081
 
 #### celery and dependencies
@@ -48,11 +46,15 @@ export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be
 export API_TOKEN=<api token obtained from NX>
 ```
 
-### Run the 3 scipts above in dwedicated shells
+### Run the 3 scripts above in dedicated shells
 
 And watch the ouput for errors
 
+### reloading configs
+
 If you change anything in a task code, you will need to restart the worker. If you change anything in the yaml config file, you need also to delete the entire "tree" for "redbeat" in the Redis database. This can be done easily in redis-commander web interface
+
+Then stop and start the beat server again
 
 ### Example yaml file
 

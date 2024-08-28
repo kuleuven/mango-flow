@@ -140,7 +140,7 @@ def wrap_extract_metadata_from_path(self, path, **kwargs):
     client_user = kwargs.pop('client_user', None)
     irods_session = get_zone_operator_session(zone, client_user=client_user)
     # @todo: make parameters explicit
-    metadata_items = extract_metadata_from_path(**kwargs)
+    metadata_items = extract_metadata_from_path(path, **kwargs)
     pprint.pp(f"Here is what I found: {metadata_items.keys()}")
     data_object = irods_session.data_objects.get(path)
     as_admin = False if client_user else True

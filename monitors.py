@@ -17,6 +17,7 @@ def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
     path = pathlib.Path(subtree)
     zone = path.parts[1]
     client_user = kwargs.pop("client_user", None)
+    path_input_mode =  kwargs.pop("path_input_mode", "single")
     try:
         irods_session = get_zone_operator_session(zone, client_user=client_user)
     except Exception as e:
@@ -56,11 +57,18 @@ def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
     )
 
     do_paths = set(do_paths) # remove duplicates
-    for do_path in do_paths:
-        args = [do_path]
-        app : Celery = current_app
+    app : Celery = current_app
+    if path_input_mode == "single":
+        for do_path in do_paths:
+            args = [do_path]
+            task : signature = app.signature(wf_action, args, kwargs['kwargs'])
+            task.apply_async()
+
+    if path_input_mode == "multi":
+        args = do_paths
         task : signature = app.signature(wf_action, args, kwargs['kwargs'])
         task.apply_async()
-        #current_app.send_task(name=wf_action, args=args, kwargs=kwargs)
+
+
 
     return f"Processed {len(do_paths)}, previous run was at {previous_run_marker}"
