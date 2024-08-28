@@ -70,7 +70,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
                 task["parameters"]["client_user"] = client_user
         # now call the task chain
         beatconfig["kwargs"] |= {
-            "wf_action": "mango_flow.irods.chain.path",
+            "wf_action": "mango_flow.irods.map.chain.path",
             "kwargs": {"header_tasks": flow["header_actions"], "aggregate_tasks": flow["aggregate_actions"]},
         }
         return beatconfig
