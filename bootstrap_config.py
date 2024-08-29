@@ -62,7 +62,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
         "mode"
-    ) == "map":
+    ) == "chord":
         # propagate/inject client_user if needed
         for task in flow["header_actions"]:
             if client_user and "client_user" not in task["parameters"]:
@@ -72,7 +72,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
                 task["parameters"]["client_user"] = client_user
         # now call the task chain
         beatconfig["kwargs"] |= {
-            "wf_action": "mango_flow.irods.map.chain.path",
+            "wf_action": "mango_flow.irods.chord.chain.path",
             "kwargs": {"header_tasks": flow["header_actions"], "aggregate_tasks": flow["aggregate_actions"]},
         }
         return beatconfig

@@ -28,7 +28,7 @@ import pathlib
 
 
 @shared_task(name="mango_flow.irods.report.path.results.test")
-def aggregate_path_results_test(*results):
+def aggregate_path_results_test(*results, client_user = None):
     pathlib.Path("/tmp/mango_flow_results.log").write_text(
         "\n".join([str(result) for result in results])
     )

@@ -1,6 +1,7 @@
 # This app should be launched from the Mango Portal project root
 
-from celery import Celery, shared_task, xmap
+from celery import Celery, shared_task, xmap, xstarmap, chord, group, chunks
+from celery.result import GroupResult
 from celery.canvas import chain, signature
 from importlib import import_module
 from plugins.mango_flow.bootstrap_config import get_beat_configs_from_global_file
@@ -63,23 +64,26 @@ def mango_flow_chain_path_tasks(self, path: str, tasks: list):
     task_chain.apply_async()
 
 
-@shared_task(name="mango_flow.irods.map.chain.path", bind=True)
-def mango_flow_map_chain(
+@shared_task(name="mango_flow.irods.chord.chain.path", bind=True)
+def mango_flow_chord_chain(
     self, paths: list, header_tasks: list = [], aggregate_tasks: list = []
 ):
     """
-    Multi-input, but every input path processed sequentially. The results are processed by the aggregate task
+    Multi-input, every input path processed In parallel. The results are processed by the aggregate task
     """
-    # print(f"header_tasks: {header_tasks}")
-    # print(f"aggregator tasks : {aggregate_tasks}")
+    
     if not paths or not header_tasks or not aggregate_tasks:
         raise (MFException(input_parameters="missing items in parameters"))
+    
+    chord_header_tasks = []
 
-    header_signature = signature(
-        header_tasks[0]["name"], kwargs=header_tasks[0]["parameters"]
-    )
-    for header_task in header_tasks[1:]:
-        header_signature.link(header_task["name"], kwargs=header_task["parameters"])
+    for path in paths:
+        header_signature = signature(
+        header_tasks[0]["name"], args = [path], kwargs=header_tasks[0]["parameters"]
+        )
+        for header_task in header_tasks[1:]:
+            header_signature.link(header_task["name"], kwargs=header_task["parameters"])
+        chord_header_tasks.append(header_signature)
 
     aggregate_signature = signature(
         aggregate_tasks[0]["name"], kwargs=aggregate_tasks[0]["parameters"]
@@ -88,19 +92,14 @@ def mango_flow_map_chain(
         aggregate_signature.link(
             aggregate_task["name"], kwargs=aggregate_task["parameters"]
         )
-    # PROBLEM TO BE SOLVED: the kwargs in the signatures inside xmap are thrown away
-    # the aggregate_signature has them
-    result = chain(
-        xmap(
-            header_signature,
-            paths,
-        ),
-        aggregate_signature,
-    ).apply_async()
 
+    result = chord(chord_header_tasks, aggregate_signature).apply_async()
+    return f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+
+    
 
 beat_schedule = {
-    "hearbeat-120-seconds": {
+    "heartbeat-120-seconds": {
         "task": "mango_flow.schedule.heartbeat",
         "schedule": 300.0,
     }
