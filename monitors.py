@@ -56,17 +56,17 @@ def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
         modified_since=previous_run_marker,
     )
 
-    do_paths = set(do_paths) # remove duplicates
+    do_paths = list(set(do_paths)) # remove duplicates
     app : Celery = current_app
     if path_input_mode == "single":
         for do_path in do_paths:
             args = [do_path]
-            task : signature = app.signature(wf_action, args, kwargs['kwargs'])
+            task : signature = app.signature(wf_action, args=args, kwargs=kwargs['kwargs'])
             task.apply_async()
 
-    if path_input_mode == "multi":
-        args = do_paths
-        task : signature = app.signature(wf_action, args, kwargs['kwargs'])
+    if path_input_mode == "multi" and do_paths:
+        #args = do_paths
+        task : signature = app.signature(wf_action, args=[do_paths], kwargs=kwargs['kwargs'])
         task.apply_async()
 
 

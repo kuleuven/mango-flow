@@ -29,6 +29,9 @@ MANGO_FLOW_MODULES = [
     {
         "module": "plugins.mango_flow.monitors",
     },
+    {
+        "module": "plugins.mango_flow.tasks.reporting",
+    },
 ]
 
 for task_group in MANGO_FLOW_MODULES:
@@ -61,27 +64,32 @@ def mango_flow_chain_path_tasks(self, path: str, tasks: list):
 
 
 @shared_task(name="mango_flow.irods.map.chain.path", bind=True)
-def mango_flow_map_chain(self, paths: list, header_tasks: list, aggregate_tasks: list):
+def mango_flow_map_chain(
+    self, paths: list, header_tasks: list = [], aggregate_tasks: list = []
+):
     """
     Multi-input, but every input path processed sequentially. The results are processed by the aggregate task
     """
+    # print(f"header_tasks: {header_tasks}")
+    # print(f"aggregator tasks : {aggregate_tasks}")
     if not paths or not header_tasks or not aggregate_tasks:
         raise (MFException(input_parameters="missing items in parameters"))
 
     header_signature = signature(
-        header_tasks.pop(0)["name"], kwargs=header_tasks.pop(0)["parameters"]
+        header_tasks[0]["name"], kwargs=header_tasks[0]["parameters"]
     )
-    for header_task in header_tasks:
+    for header_task in header_tasks[1:]:
         header_signature.link(header_task["name"], kwargs=header_task["parameters"])
 
     aggregate_signature = signature(
-        aggregate_tasks.pop(0)["name"], kwargs=aggregate_tasks.pop(0)["parameters"]
+        aggregate_tasks[0]["name"], kwargs=aggregate_tasks[0]["parameters"]
     )
-    for aggregate_task in aggregate_tasks:
+    for aggregate_task in aggregate_tasks[1:]:
         aggregate_signature.link(
             aggregate_task["name"], kwargs=aggregate_task["parameters"]
         )
-
+    # PROBLEM TO BE SOLVED: the kwargs in the signatures inside xmap are thrown away
+    # the aggregate_signature has them
     result = chain(
         xmap(
             header_signature,
@@ -89,7 +97,6 @@ def mango_flow_map_chain(self, paths: list, header_tasks: list, aggregate_tasks:
         ),
         aggregate_signature,
     ).apply_async()
-
 
 
 beat_schedule = {

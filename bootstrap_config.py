@@ -1,7 +1,6 @@
 import yaml
 import pathlib
 import json
-import os
 
 
 def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
@@ -28,11 +27,14 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         return False
 
     client_user = item_config["trigger"]["beat"].pop("client_user", None)
+    path_input_mode = item_config["trigger"]["beat"].pop("path_input_mode", "single") #multi # single is the default, multi means all changed paths are passed in 1 go  into the flow entry point
+
     beatconfig = item_config["trigger"]["beat"]  # delivers task name and schedule
 
     beatconfig["kwargs"] = {
         "subtree": item_config["match"]["subtree"],
         "client_user": client_user,
+        "path_input_mode": path_input_mode,
     }
 
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
