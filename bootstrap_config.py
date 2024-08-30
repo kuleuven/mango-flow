@@ -27,7 +27,10 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         return False
 
     client_user = item_config["trigger"]["beat"].pop("client_user", None)
-    path_input_mode = item_config["trigger"]["beat"].pop("path_input_mode", "single") #multi # single is the default, multi means all changed paths are passed in 1 go  into the flow entry point
+    monitoring_offset = item_config["trigger"]["beat"].pop("monitoring_offset", 0)
+    path_input_mode = item_config["trigger"]["beat"].pop(
+        "path_input_mode", "single"
+    )  # multi # single is the default, multi means all changed paths are passed in 1 go  into the flow entry point
 
     beatconfig = item_config["trigger"]["beat"]  # delivers task name and schedule
 
@@ -35,6 +38,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         "subtree": item_config["match"]["subtree"],
         "client_user": client_user,
         "path_input_mode": path_input_mode,
+        "monitoring_offset": monitoring_offset,
     }
 
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
@@ -59,7 +63,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
             "kwargs": {"tasks": flow["action"]},
         }
         return beatconfig
-    
+
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
         "mode"
     ) == "chord":
@@ -73,7 +77,10 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         # now call the task chain
         beatconfig["kwargs"] |= {
             "wf_action": "mango_flow.irods.chord.chain.path",
-            "kwargs": {"header_tasks": flow["header_actions"], "aggregate_tasks": flow["aggregate_actions"]},
+            "kwargs": {
+                "header_tasks": flow["header_actions"],
+                "aggregate_tasks": flow["aggregate_actions"],
+            },
         }
         return beatconfig
 

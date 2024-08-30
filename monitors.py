@@ -10,14 +10,18 @@ import datetime
 import zoneinfo
 import hashlib
 
-from .import MangoFlowTask
+from . import MangoFlowTask
+
 
 @shared_task(name="mango_flow.monitor.irods.subtree", bind=True, base=MangoFlowTask)
-def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
+def monitor_subtree(
+    self, subtree: str, wf_action: str, monitoring_offset: int, *args, **kwargs
+):
     path = pathlib.Path(subtree)
     zone = path.parts[1]
     client_user = kwargs.pop("client_user", None)
-    path_input_mode =  kwargs.pop("path_input_mode", "single")
+    monitoring_offset = max(int(monitoring_offset), 0)
+    path_input_mode = kwargs.pop("path_input_mode", "single")
     try:
         irods_session = get_zone_operator_session(zone, client_user=client_user)
     except Exception as e:
@@ -43,32 +47,42 @@ def monitor_subtree(self, subtree: str, wf_action: str, *args, **kwargs):
         )
     )
 
+    modified_since = (
+        previous_run_marker - datetime.timedelta(seconds=monitoring_offset)
+        if previous_run_marker is not None
+        else None
+    )
+
     do_paths = get_modified_data_object_paths(
         irods_session,
         subtree=subtree,
         modified_mode="data_object",
-        modified_since=previous_run_marker,
+        modified_since=modified_since,
     )
     do_paths += get_modified_data_object_paths(
         irods_session,
         subtree=subtree,
         modified_mode="metadata",
-        modified_since=previous_run_marker,
+        modified_since=modified_since,
     )
 
-    do_paths = list(set(do_paths)) # remove duplicates
-    app : Celery = current_app
+    do_paths = list(set(do_paths))  # remove duplicates
+    app: Celery = current_app
     if path_input_mode == "single":
         for do_path in do_paths:
             args = [do_path]
-            task : signature = app.signature(wf_action, args=args, kwargs=kwargs['kwargs'])
+            task: signature = app.signature(
+                wf_action, args=args, kwargs=kwargs["kwargs"]
+            )
             task.apply_async()
 
     if path_input_mode == "multi" and do_paths:
-        #args = do_paths
-        task : signature = app.signature(wf_action, args=[do_paths], kwargs=kwargs['kwargs'])
+        # args = do_paths
+        task: signature = app.signature(
+            wf_action, args=[do_paths], kwargs=kwargs["kwargs"]
+        )
         task.apply_async()
 
+    from_text = f" modified since {modified_since}" if monitoring_offset > 0 else ""
 
-
-    return f"Processed {len(do_paths)}, previous run was at {previous_run_marker}"
+    return f"Processed {len(do_paths)} paths{from_text}, previous run was at {previous_run_marker}."

@@ -9,7 +9,9 @@ from celery import signature
 from plugins.operator import get_zone_operator_session
 import time
 from plugins.mango_flow import MangoFlowTask
-#import asyncio # not yet
+
+# import asyncio # not yet
+
 
 class MFBasicIngestException(Exception):
     def __init__(self, message="Mango Flow basic ingest error", **params):
@@ -114,7 +116,7 @@ def irods_ingest_move_data_object(
 def make_collection_p(irods_session: iRODSSession, path, acls: dict = {}):
     """
     a mkdir -p equivalent for collections
-    Take advantage that only the existence of the deepest collection 
+    Take advantage that only the existence of the deepest collection
     needs to be tested, the parents will be automatically created if
     they do not exist
     """
@@ -125,7 +127,8 @@ def make_collection_p(irods_session: iRODSSession, path, acls: dict = {}):
     if acls:
         for user, access_type in acls.items():
             irods_session.acls.set(iRODSAccess(access_type, path, user))
-    return collection #maybe better return just the path
+    return collection  # maybe better return just the path
+
 
 def irods_ingest_copy_data_object_local(
     irods_session: iRODSSession,
@@ -189,13 +192,13 @@ def irods_ingest_copy_data_object_streaming(
     Using streaming since the src and dst session may have different ACL rights
     Works also across zones
     """
-    buffer_size = 2**24 # 16MiB
+    buffer_size = 2**24  # 16MiB
     src_data_object = src_irods_session.data_objects.get(src)
     dst_data_object = dst_irods_session.data_objects.create(dst)
 
     with dst_data_object.open("w", finalize_on_close=True) as f_dst:
         for buffer_read in data_object_read_in_chunks(src_data_object, buffer_size):
-            res =  f_dst.write(buffer_read)
+            res = f_dst.write(buffer_read)
     if metadata:
         all_metadata_src = src_data_object.metadata.items()
         md_operations = []
@@ -219,13 +222,15 @@ def write_to_local_tar_archive(
     src_list: list[str],
     dst: str,
     dst_mode="a",
-    skip_path_elements=3, # default is typically /<zone>/<home>/<project>
+    skip_path_elements=3,  # default is typically /<zone>/<home>/<project>
 ):
-    """ see bulk operations as well as copy in mango_flow, move to general lib instead? """
+    """see bulk operations as well as copy in mango_flow, move to general lib instead?"""
     pass
 
 
-@shared_task(name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask)
+@shared_task(
+    name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask
+)
 def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     """
     @Important! Destination template must include the object name, the collections must exist already
@@ -257,10 +262,29 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
         raise (MFBasicIngestException(no_match_move_do=path))
 
 
-@shared_task(name="mango_flow.irods.ingest_copy_data_object", bind=True, base=MangoFlowTask)
+@shared_task(name="mango_flow.irods.test_offset", bind=True, base=MangoFlowTask)
+def wrap_test_offset(self, path, client_user):
+    zone = pathlib.Path(path).parts[1]
+    irods_session = get_zone_operator_session(zone, client_user=client_user)
+    dobj = irods_session.data_objects.get(path)
+    import datetime
+    import zoneinfo
+
+    utc = zoneinfo.ZoneInfo("UTC")
+    now = datetime.datetime.now(tz=utc)
+    difference = now - dobj.modify_time.replace(tzinfo=utc)
+    total_seconds = difference.total_seconds()
+    if total_seconds < 60:
+        return f"{path} is only {int(total_seconds)} seconds old, I will skip it"
+    return f"{path} is already {int(total_seconds)} seconds old!"
+
+
+@shared_task(
+    name="mango_flow.irods.ingest_copy_data_object", bind=True, base=MangoFlowTask
+)
 def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     """"""
-   
+
     path_regex = kwargs.pop("path_regex")
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]
