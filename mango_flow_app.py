@@ -33,6 +33,7 @@ MANGO_FLOW_MODULES = [
     {
         "module": "plugins.mango_flow.tasks.reporting",
     },
+    {"module": "plugins.mango_flow.tasks.fogcoa_workflow"},
 ]
 
 for task_group in MANGO_FLOW_MODULES:
@@ -71,15 +72,15 @@ def mango_flow_chord_chain(
     """
     Multi-input, every input path processed In parallel. The results are processed by the aggregate task
     """
-    
+
     if not paths or not header_tasks or not aggregate_tasks:
         raise (MFException(input_parameters="missing items in parameters"))
-    
+
     chord_header_tasks = []
 
     for path in paths:
         header_signature = signature(
-        header_tasks[0]["name"], args = [path], kwargs=header_tasks[0]["parameters"]
+            header_tasks[0]["name"], args=[path], kwargs=header_tasks[0]["parameters"]
         )
         for header_task in header_tasks[1:]:
             header_signature.link(header_task["name"], kwargs=header_task["parameters"])
@@ -96,7 +97,6 @@ def mango_flow_chord_chain(
     result = chord(chord_header_tasks, aggregate_signature).apply_async()
     return f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
 
-    
 
 beat_schedule = {
     "heartbeat-120-seconds": {
