@@ -1,4 +1,7 @@
 import re, pathlib, jinja2
+import datetime
+import zoneinfo
+
 from irods.session import iRODSSession
 from irods.access import iRODSAccess
 from irods.data_object import iRODSDataObject
@@ -262,18 +265,19 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
         raise (MFBasicIngestException(no_match_move_do=path))
 
 
+def check_file_age(dobj):
+    utc = zoneinfo.ZoneInfo("UTC")
+    now = datetime.datetime.now(tz=utc)
+    difference = now - dobj.modify_time.replace(tzinfo=utc)
+    return difference.total_seconds()
+
+
 @shared_task(name="mango_flow.irods.test_offset", bind=True, base=MangoFlowTask)
 def wrap_test_offset(self, path, client_user):
     zone = pathlib.Path(path).parts[1]
     irods_session = get_zone_operator_session(zone, client_user=client_user)
     dobj = irods_session.data_objects.get(path)
-    import datetime
-    import zoneinfo
-
-    utc = zoneinfo.ZoneInfo("UTC")
-    now = datetime.datetime.now(tz=utc)
-    difference = now - dobj.modify_time.replace(tzinfo=utc)
-    total_seconds = difference.total_seconds()
+    total_seconds = check_file_age(dobj)
     if total_seconds < 60:
         return f"{path} is only {int(total_seconds)} seconds old, I will skip it"
     return f"{path} is already {int(total_seconds)} seconds old!"

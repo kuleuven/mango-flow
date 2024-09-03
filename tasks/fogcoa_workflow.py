@@ -5,6 +5,7 @@ from pathlib import Path
 
 from celery import shared_task
 from plugins.operator import get_zone_operator_session
+from .basic_operations import check_file_age
 
 from plugins.mango_flow import MangoFlowTask
 
@@ -262,10 +263,15 @@ def build_destination_path(validated_filename, patternset):
 def wrap_validate_fogcoa_files(self, path, path_regex, client_user):
     if not re.match(path_regex, path):
         return path
-
     path_as_path = Path(path)
     zone = path_as_path.parts[1]
     irods_session = get_zone_operator_session(zone, client_user=client_user)
+
+    irods_file = irods_session.data_objects.get(path)
+    file_age = check_file_age(irods_file)
+    if file_age < 60:
+        return f"{path} is only {file_age} seconds old."
+
     patternset = PatternSet(path_as_path)
     validated, result = validate_filename(path, patternset)
     failing_dest = str(
