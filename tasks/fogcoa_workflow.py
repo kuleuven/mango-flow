@@ -78,13 +78,13 @@ class PatternSet:
                 break
 
         if not matched:
-            return (False, "No acceptable pattern was matched.")
+            return (False, "No acceptable pattern was matched")
 
         if (
             filename_groups["sitecollection"] == self.rochester_name
             and pattern_name != "interview"
         ):
-            return (False, "Rochester site files should follow the interview pattern.")
+            return (False, "Rochester site files should follow the interview pattern")
         return (pattern_name, filename_groups)
 
     def reject_outside_of_project(self, object_path):
@@ -128,7 +128,7 @@ def validate_filename(filename, patternset):
 
     # match numeric value in site with the original site (check parent collection)
     if filename_groups["site"] not in patternset.sites_get_mapping:
-        return (False, f"Site prefix {filename_groups['site'].upper()} is not valid.")
+        return (False, f"Site prefix {filename_groups['site'].upper()} is not valid")
     if (
         filename_groups["sitecollection"] != patternset.rochester_name
         and filename_groups["sitecollection"]
@@ -136,7 +136,7 @@ def validate_filename(filename, patternset):
     ):
         return (
             False,
-            f"Site prefix {filename_groups['site'].upper()} does not match source ({filename_groups['sitecollection']}).",
+            f"Site prefix {filename_groups['site'].upper()} does not match source ({filename_groups['sitecollection']})",
         )
 
     if pattern == "long":
@@ -149,7 +149,7 @@ def validate_filename(filename, patternset):
         filename_groups["blur"] = "blur"
 
         if filename_groups["trial"] not in valid_trial_values:
-            return (False, f"{filename_groups['trial']} is not a valid trial value.")
+            return (False, f"{filename_groups['trial']} is not a valid trial value")
 
     elif pattern == "h5":
         try:
@@ -158,7 +158,7 @@ def validate_filename(filename, patternset):
             )
             filename_groups["timestamp"] = timestamp_as_date.isoformat()
         except:
-            return (False, "The timestamp is not in the correct format.")
+            return (False, "The timestamp is not in the correct format")
 
     elif pattern == "monitor":
         ext_pdf = filename_groups["ext"] == "pdf"
@@ -166,10 +166,10 @@ def validate_filename(filename, patternset):
         if ext_pdf and not act_diary:
             return (
                 False,
-                "Monitor files with pdf extension should be activity diaries.",
+                "Monitor files with pdf extension should be activity diaries",
             )
         if not ext_pdf and act_diary:
-            return (False, "Activity diaries should have pdf extension.")
+            return (False, "Activity diaries should have pdf extension")
 
     # Organize elements to rebuild path
     compulsory_elements = ["sitecollection", "site", "sub", "group", "ext"]
@@ -257,6 +257,26 @@ def build_destination_path(validated_filename, patternset):
     return collection / filename
 
 
+def delete_empty_directories(
+    path: Path,
+    irods_session,
+    blocker_regex: str = None,
+):
+    deleted_collection = ""
+    for parent in path.parents:
+        if blocker_regex is None or re.search(
+            blocker_regex, str(parent)
+        ):  # stop going up the tree
+            break
+        try:
+            collection = irods_session.collections.get(str(parent))
+            collection.remove()
+            deleted_collection = str(parent)
+        except:
+            break
+    return deleted_collection
+
+
 @shared_task(
     name="mango_flow.irods.validate_fogcoa_files", bind=True, base=MangoFlowTask
 )
@@ -278,12 +298,13 @@ def wrap_validate_fogcoa_files(self, path, path_regex, client_user):
         patternset.project
         / path_as_path.parts[4]  # university
         / "upload"
+        / "to_review"
         / path_as_path.name
     )
 
     log_data = {
         "timestamp": str(datetime.now()),
-        "original_path": path,
+        "path": path,
         "destination_path": failing_dest,
         "message": result,
         "succeeded": False,
@@ -317,22 +338,51 @@ def wrap_validate_fogcoa_files(self, path, path_regex, client_user):
                 log_data["destination_path"] = path
             else:
                 irods_session.data_objects.move(path, failing_dest)
-        log_data["message"] = f"Destination path '{dest}' already exists."
+        log_data["message"] = f"Destination path '{dest}' already exists"
         return log_data
 
     # if everything went smoothly:
-    irods_session.data_objects.move(path, dest)
-    comments = []
-    if "timestamp" in result["specific"]:
-        irods_session.data_objects.get(dest).metadata.add(
-            "recording_time", result["specific"]["timestamp"]
-        )
-        comments.append("Timestamp added as metadata")
-    if path_as_path.name != destination_path.name:
-        comments.append("Filename changed")
-    if result["common"]["sub"].endswith("02") and result["common"]["group"] == "nf":
-        comments.append("NF with ses02")
-    log_data["destination_path"] = dest
-    log_data["message"] = ", ".join(comments)
-    log_data["succeeded"] = True
+    try:
+        irods_session.data_objects.move(path, dest)
+        log_data["destination_path"] = dest
+        log_data["succeeded"] = True
+    except:
+        log_data["destination_path"] = path
+        log_data["message"] = "Something unclear went wrong moving the file"
+        log_data["succeeded"] = False
+
+    if log_data["succeeded"]:
+        comments = []
+        if "timestamp" in result["specific"]:
+            irods_session.data_objects.get(dest).metadata.add(
+                "recording_time", result["specific"]["timestamp"]
+            )
+            comments.append("Timestamp added as metadata")
+        if path_as_path.name != destination_path.name:
+            comments.append("Filename changed")
+        if result["common"]["sub"].endswith("02") and result["common"]["group"] == "nf":
+            comments.append("NF with ses02")
+        log_data["message"] = ", ".join(comments)
     return log_data
+
+
+@shared_task(
+    name="mango_flow.irods.delete_empty_collections", bind=True, base=MangoFlowTask
+)
+def wrap_irods_delete_empty_collections(
+    self, validation_output, path_regex, blocker_regex, client_user
+):
+    if type(validation_output) == dict:
+        path = validation_output["path"]
+        if not re.match(path_regex, path):
+            return path
+        path_as_path = Path(path)
+        zone = path_as_path.parts[1]
+        irods_session = get_zone_operator_session(zone, client_user=client_user)
+        deleted_collection = delete_empty_directories(
+            path_as_path, irods_session, blocker_regex
+        )
+        if deleted_collection:
+            print(deleted_collection)
+            validation_output["message"] += f", {deleted_collection} was deleted"
+    return validation_output
