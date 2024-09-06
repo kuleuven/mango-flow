@@ -72,7 +72,7 @@ def aggregate_path_results_table(
             with obj.open("w") as f:
                 f.write(colnames.encode())
                 f.write(other_lines.encode())
-    return "Log has been populated!"
+    return dicts
 
 
 @shared_task(name="mango_flow.irods.report.path.results.test")

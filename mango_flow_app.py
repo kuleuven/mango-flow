@@ -33,7 +33,7 @@ MANGO_FLOW_MODULES = [
     {
         "module": "plugins.mango_flow.tasks.reporting",
     },
-    {"module": "plugins.mango_flow.tasks.fogcoa_workflow"},
+    {"module": "fogcoa_validation"},
 ]
 
 for task_group in MANGO_FLOW_MODULES:
