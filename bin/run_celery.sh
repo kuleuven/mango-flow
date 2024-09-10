@@ -11,4 +11,4 @@ if [ ! -z "$2" ]
     cd $2
 fi
 
-celery -A plugins.mango_flow.mango_flow_app.mango_flow $1 -l INFO
+exec celery -A plugins.mango_flow.mango_flow_app.mango_flow $1 -l INFO
