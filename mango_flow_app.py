@@ -99,7 +99,7 @@ def mango_flow_chord_chain(
     
 
 beat_schedule = {
-    "heartbeat-120-seconds": {
+    "heartbeat-300-seconds": {
         "task": "mango_flow.schedule.heartbeat",
         "schedule": 300.0,
     }
