@@ -45,8 +45,8 @@ def aggregate_path_results_table(
     if len(dicts) == 0:
         return "No dicts found to log!"
     colnames = sep.join(str(i) for i in dicts[0].keys()) + "\n"
-    other_lines = "\n".join(
-        sep.join(str(i) for i in result.values()) for result in dicts
+    other_lines = (
+        "\n".join(sep.join(str(i) for i in result.values()) for result in dicts) + "\n"
     )
     if save_locally:
         local_path = pathlib.Path("/", "tmp", report_file)
@@ -72,9 +72,7 @@ def aggregate_path_results_table(
             with obj.open("w") as f:
                 f.write(colnames.encode())
                 f.write(other_lines.encode())
-    else:
-        "No client user provided"
-    return "Log has been populated!"
+    return dicts
 
 
 @shared_task(name="mango_flow.irods.report.path.results.test")
