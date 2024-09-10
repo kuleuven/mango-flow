@@ -6,5 +6,9 @@ if [ $# -eq 0 ]
     exit
 fi
 
+if [ ! -z "$2" ]
+  then
+    cd $2
+fi
 
 celery -A plugins.mango_flow.mango_flow_app.mango_flow $1 -l INFO
