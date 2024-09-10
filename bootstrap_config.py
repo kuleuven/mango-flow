@@ -1,6 +1,6 @@
 import yaml
 import pathlib
-import json
+from celery.schedules import crontab, schedule, solar
 
 
 def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
@@ -33,6 +33,8 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     )  # multi # single is the default, multi means all changed paths are passed in 1 go  into the flow entry point
 
     beatconfig = item_config["trigger"]["beat"]  # delivers task name and schedule
+    if type(beatconfig["schedule"]) == str:
+        beatconfig["schedule"] = eval(beatconfig["schedule"])
 
     beatconfig["kwargs"] = {
         "subtree": item_config["match"]["subtree"],
@@ -96,5 +98,8 @@ def get_beat_configs_from_global_file(mango_global_config_file_name):
         for name, itemconfig in zone_config.items():
             if valid_beat_item := parse_beat_flow_item(itemconfig):
                 beats[f"{zone}_{name}"] = valid_beat_item
-    print(json.dumps(beats, indent=2))
+
+    import pprint
+
+    pprint.pp(beats)
     return beats
