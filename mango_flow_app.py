@@ -4,8 +4,8 @@ from celery import Celery, shared_task, xmap, xstarmap, chord, group, chunks
 from celery.result import GroupResult
 from celery.canvas import chain, signature
 from importlib import import_module
-from plugins.mango_flow.bootstrap_config import get_beat_configs_from_global_file
-
+from .bootstrap_config import get_beat_configs_from_global_file
+from .mango_flow_workers_config import MANGO_FLOW_MODULES
 import logging
 import os
 
@@ -19,22 +19,6 @@ broker = os.environ.get("MANGO_FLOW_BROKER", "redis://localhost:6379/0")
 backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
 
 mf_logger = logging.getLogger(__name__)
-
-MANGO_FLOW_MODULES = [
-    {
-        "module": "plugins.mango_flow.tasks.basic_operations",
-    },
-    {
-        "module": "plugins.mango_flow.tasks.basic_metadata_extraction",
-    },
-    {
-        "module": "plugins.mango_flow.monitors",
-    },
-    {
-        "module": "plugins.mango_flow.tasks.reporting",
-    },
-    {"module": "fogcoa_validation"},
-]
 
 for task_group in MANGO_FLOW_MODULES:
     module = import_module(task_group["module"])
