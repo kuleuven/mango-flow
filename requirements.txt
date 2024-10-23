@@ -1,0 +1,7 @@
+celery==5.4.0
+flask-wtf==1.2.1
+pip==22.0.2
+pydantic==2.9.2
+python-irodsclient==2.2.0
+PyYAML==6.0.2
+setuptools==59.6.0

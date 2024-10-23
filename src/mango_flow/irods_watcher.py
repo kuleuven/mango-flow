@@ -1,14 +1,10 @@
-from irods.session import iRODSSession
-from irods.models import (
-    Collection,
-    DataObject,
-    DataObjectMeta,
-)
-from irods.session import iRODSSession
-from irods.query import Query
-from irods.column import Criterion, Like
-from irods import __version__ as prc_version
 from datetime import datetime
+
+from irods import __version__ as prc_version
+from irods.column import Criterion, Like
+from irods.models import Collection, DataObject, DataObjectMeta
+from irods.query import Query
+from irods.session import iRODSSession
 
 
 def get_modified_data_object_paths(

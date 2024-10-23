@@ -2,7 +2,6 @@ import yaml
 import pathlib
 from celery.schedules import crontab, schedule, solar
 
-
 def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
     # a YAML file can have several "docs"
     try:
@@ -12,6 +11,7 @@ def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
         return False
     doc_list = [doc for doc in doc_list_iterator]
     mf_zone_config = {doc["zone"]: doc for doc in doc_list}
+    # remove the zone entry itself, it has no use anymore and would sit in the way for further processing
     for zone in mf_zone_config.keys():
         mf_zone_config[zone].pop("zone")
     return mf_zone_config
