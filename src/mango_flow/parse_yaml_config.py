@@ -1,6 +1,8 @@
-import yaml
-import pathlib
 import json
+import pathlib
+
+import yaml
+
 
 def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict|bool:
     # a YAML file can have several "docs"

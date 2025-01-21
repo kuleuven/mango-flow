@@ -148,6 +148,32 @@ def wrap_extract_metadata_from_path(self, path, **kwargs):
     
     return path
 
+@shared_task(name="mango_flow.irods.extract_metadata_path_multi_regex", bind=True, base=MangoFlowTask)
+def wrap_extract_metadata_from_path_multi_regex(self, path, path_regex_list, mapper, split_metadata, apply_first_match_only = True, **kwargs):
+    
+    matching_regexes = []
+
+    for path_regex in path_regex_list:
+        if re.search(path_regex, path):
+            matching_regexes.append(path_regex)
+            if apply_first_match_only:
+                break
+
+    if not matching_regexes:
+        return path
+
+    zone = pathlib.Path(path).parts[1]
+
+    client_user = kwargs.pop('client_user', None)
+    irods_session = get_zone_operator_session(zone, client_user=client_user)
+    metadata_items = {}
+    for path_regex in matching_regexes:
+        metadata_items |= extract_metadata_from_path(path, path_regex=path_regex, mapper=mapper, split_metadata=split_metadata)
+    data_object = irods_session.data_objects.get(path)
+    as_admin = False if client_user else True
+    bulk_add_metadata(data_object, metadata_items, unit_text="analysis/path", as_admin=as_admin)
+    
+    return path
 
 @shared_task(name="mango_flow.irods.extract_metadata_marked_text_file_header", bind=True, base=MangoFlowTask)
 def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
