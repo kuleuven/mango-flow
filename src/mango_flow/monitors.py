@@ -12,6 +12,64 @@ import hashlib
 
 from . import MangoFlowTask
 
+from irods.session import iRODSSession
+from irods.data_object import iRODSDataObject
+from irods.collection import iRODSCollection
+from irods.meta import iRODSMeta
+
+from irods.query import Query
+from irods.column import Criterion, Like
+from irods.models import (
+    Collection,
+    DataObject,
+    DataObjectMeta,
+    CollectionMeta
+)
+                    
+
+def search_metadata_collection(irods_session: iRODSSession, subtree: str, metadata_name: str, metadata_value: str | bool = True):
+    filters = [Like(Collection.name, f"subtree%")]
+
+    filters += Criterion("=", CollectionMeta.name, metadata_name)
+    if not isinstance(value, bool):
+        comparison = "like" if value.find("%") != -1 else "="
+        filters += Criterion(comparison, CollectionMeta.value, metadata_value)
+
+    query_results = irods_session.query(Collection.name).filter(*filters)
+
+    return [r[Collection.name] for r in query_results]
+
+
+@shared_task(name="mango_flow.monitor.irods.collections.metadata", bind = True, base = MangoFlowTask)
+def monitor_subtree_collections_via_metadata(self, subtree: str, metadata_name: str, metadata_value: str | bool, wf_action: str, *args, **kwargs):
+    path = pathlib.Path(subtree)
+    zone = path.parts[1]
+    client_user = kwargs.pop("client_user", None)
+    try:
+        irods_session = get_zone_operator_session(zone, client_user=client_user)
+    except Exception as e:
+        return str(e)
+    
+    collection_paths = search_metadata_collection(irods_session=irods_session, subtree=subtree, metadata_name=metadata_name, metadata_value=metadata_value)
+
+    path_input_mode = kwargs.pop("path_input_mode", "single")
+    app: Celery = current_app
+    if path_input_mode == "single":
+        for collection in collection_paths:
+            args = [collection]
+            task: signature = app.signature(
+                wf_action, args=args, kwargs=kwargs["kwargs"]
+            )
+            task.apply_async()
+
+    if path_input_mode == "multi" and collection_paths:
+        # args = do_paths
+        task: signature = app.signature(
+            wf_action, args=[collection_paths], kwargs=kwargs["kwargs"]
+        )
+        task.apply_async()
+
+
 
 @shared_task(name="mango_flow.monitor.irods.subtree", bind=True, base=MangoFlowTask)
 def monitor_subtree(
