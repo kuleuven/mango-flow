@@ -13,6 +13,7 @@ import pprint
 
 from plugins.mango_flow import MangoFlowTask
 
+
 class MFMetaDataExtractionError(Exception):
     def __init__(self, message="Mango Flow Metadata Extraction Error", **params):
         super().__init__(f"{message} : {params}")
@@ -88,13 +89,23 @@ def extract_metadata_from_marked_file_header(
     return metadata_as_dict
 
 
-def bulk_add_metadata(item : iRODSDataObject| iRODSCollection, metadata_items: dict, unit_text: str = "analysis/other", as_admin = False):
+def bulk_add_metadata(
+    item: iRODSDataObject | iRODSCollection,
+    metadata_items: dict,
+    unit_text: str = "analysis/other",
+    wipe_matching_unit=True,
+    as_admin=False,
+):
     if metadata_items:
         metadata_names = metadata_items.keys()
         avu_operations = [
             AVUOperation(operation="remove", avu=avu)
             for avu in item.metadata.items()
-            if avu.name in metadata_names
+            # match any unit that starts with the string specified. 
+            # The general wisdom is that is used in a mime like or namespace fashion seprateed with forward slashes
+            # eg 'analysis/'
+            if (avu.name in metadata_names)
+            or (wipe_matching_unit and avu.units.startswith(unit_text))
         ]
         for m_name, m_value in metadata_items.items():
             if type(m_value) == list:
@@ -102,9 +113,7 @@ def bulk_add_metadata(item : iRODSDataObject| iRODSCollection, metadata_items: d
                     [
                         AVUOperation(
                             "add",
-                            iRODSMeta(
-                                name=m_name, value=sub_value, units=unit_text
-                            ),
+                            iRODSMeta(name=m_name, value=sub_value, units=unit_text),
                         )
                         for sub_value in m_value
                     ]
@@ -114,20 +123,17 @@ def bulk_add_metadata(item : iRODSDataObject| iRODSCollection, metadata_items: d
                 avu_operations.append(
                     AVUOperation(
                         operation="add",
-                        avu=iRODSMeta(
-                            name=m_name, value=m_value, units=unit_text
-                        ),
+                        avu=iRODSMeta(name=m_name, value=m_value, units=unit_text),
                     )
                 )
-            else:
-                raise (MFMetaDataExtractionError({"unknown_field_type": type(m_value)}))
+
         if len(avu_operations):
-            #pprint.pp(avu_operations)
             item.metadata(admin=as_admin).apply_atomic_operations(*avu_operations)
 
 
-
-@shared_task(name="mango_flow.irods.extract_metadata_path", bind=True, base=MangoFlowTask)
+@shared_task(
+    name="mango_flow.irods.extract_metadata_path", bind=True, base=MangoFlowTask
+)
 def wrap_extract_metadata_from_path(self, path, **kwargs):
     path_regex = kwargs["path_regex"]
 
@@ -137,20 +143,35 @@ def wrap_extract_metadata_from_path(self, path, **kwargs):
     zone = pathlib.Path(path).parts[1]
 
     print(f"Entering metadata extraction for zone {zone}, path {path}")
-    client_user = kwargs.pop('client_user', None)
+    client_user = kwargs.pop("client_user", None)
     irods_session = get_zone_operator_session(zone, client_user=client_user)
     # @todo: make parameters explicit
     metadata_items = extract_metadata_from_path(path, **kwargs)
     pprint.pp(f"Here is what I found: {metadata_items.keys()}")
     data_object = irods_session.data_objects.get(path)
     as_admin = False if client_user else True
-    bulk_add_metadata(data_object, metadata_items, unit_text="analysis/path", as_admin=as_admin)
-    
+    bulk_add_metadata(
+        data_object, metadata_items, unit_text="analysis/path", as_admin=as_admin
+    )
+
     return path
 
-@shared_task(name="mango_flow.irods.extract_metadata_path_multi_regex", bind=True, base=MangoFlowTask)
-def wrap_extract_metadata_from_path_multi_regex(self, path, path_regex_list, mapper, split_metadata, apply_first_match_only = True, **kwargs):
-    
+
+@shared_task(
+    name="mango_flow.irods.extract_metadata_path_multi_regex",
+    bind=True,
+    base=MangoFlowTask,
+)
+def wrap_extract_metadata_from_path_multi_regex(
+    self,
+    path,
+    path_regex_list,
+    mapper,
+    split_metadata,
+    apply_first_match_only=True,
+    **kwargs,
+):
+
     matching_regexes = []
 
     for path_regex in path_regex_list:
@@ -164,40 +185,58 @@ def wrap_extract_metadata_from_path_multi_regex(self, path, path_regex_list, map
 
     zone = pathlib.Path(path).parts[1]
 
-    client_user = kwargs.pop('client_user', None)
+    client_user = kwargs.pop("client_user", None)
     irods_session = get_zone_operator_session(zone, client_user=client_user)
     metadata_items = {}
     for path_regex in matching_regexes:
-        metadata_items |= extract_metadata_from_path(path, path_regex=path_regex, mapper=mapper, split_metadata=split_metadata)
+        metadata_items |= extract_metadata_from_path(
+            path, path_regex=path_regex, mapper=mapper, split_metadata=split_metadata
+        )
     data_object = irods_session.data_objects.get(path)
     as_admin = False if client_user else True
-    bulk_add_metadata(data_object, metadata_items, unit_text="analysis/path", as_admin=as_admin)
-    
+    bulk_add_metadata(
+        data_object, metadata_items, unit_text="analysis/path", as_admin=as_admin
+    )
+
     return path
 
-@shared_task(name="mango_flow.irods.extract_metadata_marked_text_file_header", bind=True, base=MangoFlowTask)
+
+@shared_task(
+    name="mango_flow.irods.extract_metadata_marked_text_file_header",
+    bind=True,
+    base=MangoFlowTask,
+)
 def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
-    path_regex = kwargs.pop('path_regex')
+    path_regex = kwargs.pop("path_regex")
     if not re.search(path_regex, path):
         return path
 
-    client_user = kwargs.pop('client_user', None)
-    buffer_size = kwargs.pop('buffer_size', 50*1024)
+    client_user = kwargs.pop("client_user", None)
+    buffer_size = kwargs.pop("buffer_size", 50 * 1024)
     zone = pathlib.Path(path).parts[1]
     irods_session = get_zone_operator_session(zone, client_user=client_user)
-    
+
     data_object = irods_session.data_objects.get(path)
     with data_object.open("r") as f:
         blub = f.read(buffer_size)
     if blub:
         print(f"Creating temp file for header extraction")
-        with tempfile.NamedTemporaryFile(delete=False, mode = "w+", encoding='utf-8') as fp:
-            fp.write(blub.decode('utf-8'))
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode="w+", encoding="utf-8"
+        ) as fp:
+            fp.write(blub.decode("utf-8"))
             fp.close()
-            #@todo add a filter 
-            metadata_items = extract_metadata_from_marked_file_header(filename = fp.name, **kwargs )
-            #print(f"Extracted metadata from header: {metadata_items}")
+            # @todo add a filter
+            metadata_items = extract_metadata_from_marked_file_header(
+                filename=fp.name, **kwargs
+            )
+            # print(f"Extracted metadata from header: {metadata_items}")
             as_admin = False if client_user else True
-            bulk_add_metadata(data_object, metadata_items, unit_text="analysis/text-header", as_admin=as_admin)
+            bulk_add_metadata(
+                data_object,
+                metadata_items,
+                unit_text="analysis/text-header",
+                as_admin=as_admin,
+            )
 
     return path
