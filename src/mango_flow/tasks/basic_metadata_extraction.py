@@ -128,6 +128,7 @@ def bulk_add_metadata(
                 )
 
         if len(avu_operations):
+            # pprint.pp(avu_operations)
             item.metadata(admin=as_admin).apply_atomic_operations(*avu_operations)
 
 

@@ -115,6 +115,18 @@ def irods_ingest_move_data_object(
     except Exception as e:
         raise MFBasicIngestException(exception=e, src=src, dest=dst)
 
+def irods_ingest_move_collection(
+    irods_session: iRODSSession, src: str, dst: str, acls: dict = {}    
+):
+    """"""
+    try:
+        irods_session.collections.move(src, dst)
+        if acls:
+            for user, access_type in acls.items():
+                irods_session.acls.set(iRODSAccess(access_type, dst, user))
+
+    except Exception as e:
+        raise MFBasicIngestException(exception=e, src=src, dest=dst)
 
 def make_collection_p(irods_session: iRODSSession, path, acls: dict = {}):
     """
@@ -219,18 +231,6 @@ def irods_ingest_copy_data_object_streaming(
     return dst
 
 
-def write_to_local_tar_archive(
-    src_irods_session: iRODSSession,
-    dst_irods_sesion: iRODSSession,
-    src_list: list[str],
-    dst: str,
-    dst_mode="a",
-    skip_path_elements=3,  # default is typically /<zone>/<home>/<project>
-):
-    """see bulk operations as well as copy in mango_flow, move to general lib instead?"""
-    pass
-
-
 @shared_task(
     name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask
 )
@@ -333,3 +333,37 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     else:
         # raise an error in case of no match to break any further processing in chains
         raise (MFBasicIngestException(no_match_copy_do=path))
+
+@shared_task(
+    name="mango_flow.irods.ingest_move_collection", bind=True, base=MangoFlowTask
+)
+def wrap_irods_move_collection(self, path, **kwargs ):
+    """"""
+    """
+    @Important! Destination template must include the object name, the collections must exist already
+    @todo: split the destination templates into collection path and object naming
+    """
+    path_regex = kwargs.pop("path_regex")
+
+    processed_regex = parse_input_path_regex(path_regex)["regex"]
+    # @todo re-add variable checking by scanning also raw regular expressions for group names
+    # possibly identifying the groups that are marked optional for flexibility
+    if result := re.search(processed_regex, path):
+        result_dict = result.groupdict()
+        dst_template = kwargs.pop("dst_template")
+        dst_path = construct_destination_path(dst_template, **result_dict)
+        client_user = kwargs.pop("client_user", None)
+        zone = pathlib.Path(path).parts[1]
+        irods_session = get_zone_operator_session(zone, client_user=client_user)
+        irods_ingest_move_collection(
+            irods_session=irods_session,
+            src=path,
+            dst=dst_path,
+            acls=kwargs.get("acls", {}),
+        )
+
+        return dst_path
+
+    else:
+        # raise an error in case of no match to break any further processing in chains
+        raise (MFBasicIngestException(no_match_move_do=path))
