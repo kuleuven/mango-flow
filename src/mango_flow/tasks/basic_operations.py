@@ -231,18 +231,6 @@ def irods_ingest_copy_data_object_streaming(
     return dst
 
 
-def write_to_local_tar_archive(
-    src_irods_session: iRODSSession,
-    dst_irods_sesion: iRODSSession,
-    src_list: list[str],
-    dst: str,
-    dst_mode="a",
-    skip_path_elements=3,  # default is typically /<zone>/<home>/<project>
-):
-    """see bulk operations as well as copy in mango_flow, move to general lib instead?"""
-    pass
-
-
 @shared_task(
     name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask
 )
@@ -347,7 +335,7 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
         raise (MFBasicIngestException(no_match_copy_do=path))
 
 @shared_task(
-    name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask
+    name="mango_flow.irods.ingest_move_collection", bind=True, base=MangoFlowTask
 )
 def wrap_irods_move_collection(self, path, **kwargs ):
     """"""
