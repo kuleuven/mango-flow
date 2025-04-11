@@ -93,6 +93,7 @@ def bulk_add_metadata(
     item: iRODSDataObject | iRODSCollection,
     metadata_items: dict,
     unit_text: str = "analysis/other",
+    wipe_matching_unit=True,
     as_admin=False,
 ):
     if metadata_items:
@@ -100,7 +101,11 @@ def bulk_add_metadata(
         avu_operations = [
             AVUOperation(operation="remove", avu=avu)
             for avu in item.metadata.items()
-            if avu.name in metadata_names
+            # match any unit that starts with the string specified. 
+            # The general wisdom is that is used in a mime like or namespace fashion seprateed with forward slashes
+            # eg 'analysis/'
+            if (avu.name in metadata_names)
+            or (wipe_matching_unit and avu.units.startswith(unit_text))
         ]
         for m_name, m_value in metadata_items.items():
             if type(m_value) == list:
@@ -121,8 +126,7 @@ def bulk_add_metadata(
                         avu=iRODSMeta(name=m_name, value=m_value, units=unit_text),
                     )
                 )
-            else:
-                raise (MFMetaDataExtractionError({"unknown_field_type": type(m_value)}))
+
         if len(avu_operations):
             # pprint.pp(avu_operations)
             item.metadata(admin=as_admin).apply_atomic_operations(*avu_operations)
