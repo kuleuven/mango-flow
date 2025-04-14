@@ -20,13 +20,25 @@ class MFMetaDataExtractionError(Exception):
 
 
 def extract_metadata_from_path(
-    path: str, path_regex: str, mapper: dict = {}, split_metadata: dict = {}
+    path: str,
+    path_regex: str,
+    mapper: dict = {},
+    split_metadata: dict = {},
+    value_mapper: dict = {},
+    apply_first_value_mapping_only: bool = True,
 ) -> dict:
     """
     both path and path_regex path may be a partial path expression, meaning from the end of a string
-    mapper converts the restricted metadata names into a more general form (irods accepts almost anything)
+    mapper converts the restricted metadata names into a more general form
     split_metadata is used to further split a value into a list of values
     and contains the metadata name (before mapping) and the regex to split on
+    value_mapper is a dictionary of dictionaries, where the first key is the metadata name (before mapping) 
+    and the second key is the value to be mapped via a regex. This is meant to normalize values
+    so the secondary keys are regular expressions that can map the value to a new/common value. 
+    Multiple regular expressions can be used to map the source value to different destination values
+
+    Note that the value_mapper and split_metadata are not to be used at the same time for now
+
     """
     matches = re.search(path_regex, path)
 
@@ -35,11 +47,19 @@ def extract_metadata_from_path(
         extracted_metadata_raw = matches.groupdict()
 
         for key, value in extracted_metadata_raw.items():
-            extracted_metadata[mapper.get(key, key)] = (
-                value
-                if not split_metadata.get(key, False)
-                else re.split(split_metadata[key], value)
-            )
+            if key in value_mapper:
+                for value_regex in value_mapper[key]:
+                    if re.search(value_regex, value):
+                        value = re.sub(
+                            value_regex, value_mapper[key][value_regex], value
+                        )
+                        if apply_first_value_mapping_only:
+                            break # the first match is used
+            if key in split_metadata:
+                # print(f"Splitting {key} with {split_metadata[key]}")
+                value = re.split(split_metadata[key], value)
+
+            extracted_metadata[mapper.get(key, key)] = value
 
     return extracted_metadata
 
@@ -101,7 +121,7 @@ def bulk_add_metadata(
         avu_operations = [
             AVUOperation(operation="remove", avu=avu)
             for avu in item.metadata.items()
-            # match any unit that starts with the string specified. 
+            # match any unit that starts with the string specified.
             # The general wisdom is that is used in a mime like or namespace fashion seprateed with forward slashes
             # eg 'analysis/'
             if (avu.name in metadata_names)
@@ -221,7 +241,7 @@ def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
     with data_object.open("r") as f:
         blub = f.read(buffer_size)
     if blub:
-        print(f"Creating temp file for header extraction")
+        print("Creating temp file for header extraction")
         with tempfile.NamedTemporaryFile(
             delete=False, mode="w+", encoding="utf-8"
         ) as fp:

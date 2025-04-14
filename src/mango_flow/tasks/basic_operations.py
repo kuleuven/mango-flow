@@ -13,8 +13,6 @@ from plugins.operator import get_zone_operator_session
 import time
 from plugins.mango_flow import MangoFlowTask
 
-# import asyncio # not yet
-
 
 class MFBasicIngestException(Exception):
     def __init__(self, message="Mango Flow basic ingest error", **params):
@@ -115,8 +113,9 @@ def irods_ingest_move_data_object(
     except Exception as e:
         raise MFBasicIngestException(exception=e, src=src, dest=dst)
 
+
 def irods_ingest_move_collection(
-    irods_session: iRODSSession, src: str, dst: str, acls: dict = {}    
+    irods_session: iRODSSession, src: str, dst: str, acls: dict = {}
 ):
     """"""
     try:
@@ -127,6 +126,7 @@ def irods_ingest_move_collection(
 
     except Exception as e:
         raise MFBasicIngestException(exception=e, src=src, dest=dst)
+
 
 def make_collection_p(irods_session: iRODSSession, path, acls: dict = {}):
     """
@@ -334,10 +334,11 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
         # raise an error in case of no match to break any further processing in chains
         raise (MFBasicIngestException(no_match_copy_do=path))
 
+
 @shared_task(
     name="mango_flow.irods.ingest_move_collection", bind=True, base=MangoFlowTask
 )
-def wrap_irods_move_collection(self, path, **kwargs ):
+def wrap_irods_move_collection(self, path, **kwargs):
     """"""
     """
     @Important! Destination template must include the object name, the collections must exist already
