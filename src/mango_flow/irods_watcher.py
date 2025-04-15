@@ -1,10 +1,13 @@
 from datetime import datetime
+import os
 
 from irods import __version__ as prc_version
 from irods.column import Criterion, Like
 from irods.models import Collection, DataObject, DataObjectMeta
 from irods.query import Query
 from irods.session import iRODSSession
+
+MYSQL_IRODS_QUERY_LIMIT = os.getenv("MYSQL_IRODS_QUERY_LIMIT", 20000)
 
 
 def get_modified_data_object_paths(
@@ -31,7 +34,7 @@ def get_modified_data_object_paths(
         if modified_mode == "metadata":
             filters += [Criterion(">=", DataObjectMeta.modify_time, modified_since)]
 
-    query = Query(session, *objects).filter(*filters)
+    query = Query(session, *objects).filter(*filters).limit(MYSQL_IRODS_QUERY_LIMIT)
     try:
         results= []
         result = query.execute()
