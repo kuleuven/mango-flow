@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-=======
+# -*- coding: utf-8 -*-
 from datetime import datetime
 import os
 
@@ -7,7 +6,6 @@ from irods import __version__ as prc_version
 from irods.column import Criterion, Like
 from irods.models import Collection, DataObject, DataObjectMeta
 from irods.query import Query
->>>>>>> 04b2b56 (Temp fix for monitoring: too few data objects returned, use query limit for genquery. We know if too high or looping can crash it for unknown reasons)
 from irods.session import iRODSSession
 from irods.models import (
     Collection,
