@@ -1,18 +1,37 @@
-from .util import read_yaml_from_data_object
 import requests
 import os
 
 from celery import shared_task
-from celery.utils.log import get_task_logger
 from plugins.operator import get_zone_operator_session
-
+from .util import read_yaml_from_string, write_yaml_to_data_object
 
 API_URL = os.getenv("API_URL", "")
 API_TOKEN = os.getenv("API_TOKEN", "")
 
 
 @shared_task(
-    name="mango_flow.tasks.users.update_mango_users_groups_from_yaml", bind=True
+    name="mango_flow.tasks.mango_user_management.validate_and_upload_yaml", bind=True
+)
+def validate_and_upload_yaml_task(
+    self, path: str, file_contents: str, client_user: str
+):
+    """
+    Task to validate and upload file with user management configuration.
+    Called ad hoc, from a route that takes care of creating the destination collection if it does not exist
+    """
+
+    # validation??
+    yaml_contents = read_yaml_from_string(file_contents)
+    path_parts = path.split("/")  # e.g. /zone/mango/realm/user_management/filename.py
+    zone = path_parts[1]
+    irods_session = get_zone_operator_session(zone=zone, client_user=client_user)
+    write_yaml_to_data_object(str(path_parts), yaml_contents, irods_session)
+    return str(path_parts)
+
+
+@shared_task(
+    name="mango_flow.tasks.mango_user_management.update_mango_users_groups_from_yaml",
+    bind=True,
 )
 def update_mango_users_groups_from_yaml_task(
     self, realm: str, yaml_data: dict, **kwargs

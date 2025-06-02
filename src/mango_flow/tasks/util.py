@@ -27,6 +27,18 @@ def read_yaml_from_data_object(path: str, irods_session: IRODSSession) -> dict:
         raise ValueError(f"Error reading YAML from data object: {e}")
 
 
+def write_yaml_to_data_object(
+    path: str, yaml_contents: dict, irods_session: IRODSSession
+) -> dict:
+    """
+    Read a YAML file directly from iRODS and return a dictionary.
+    """
+    data_object = irods_session.data_objects.create(path)
+    with data_object.open("w") as file:
+        yaml_string = yaml.dump(yaml_contents)
+        file.write(yaml_string.encode())
+
+
 def get_list_diff(old: list, new: list) -> dict:
     """
     Compare two lists and return the added and removed items.
