@@ -37,11 +37,15 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         beatconfig["schedule"] = eval(beatconfig["schedule"])
 
     beatconfig["kwargs"] = {
-        "subtree": item_config["match"]["subtree"],
+        "subtree": item_config["match"].pop("subtree"),
         "client_user": client_user,
         "path_input_mode": path_input_mode,
         "monitoring_offset": monitoring_offset,
     }
+
+    # process parameters for metadata monitoring
+    if item_config["match"].get("metadata", None):
+        beatconfig["kwargs"]["metadata"] = item_config["match"]["metadata"]
 
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
         "mode"

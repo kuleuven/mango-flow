@@ -27,13 +27,17 @@ from irods.models import (
 )
                     
 
-def search_metadata_collection(irods_session: iRODSSession, subtree: str, metadata_name: str, metadata_value: str | bool = True):
-    filters = [Like(Collection.name, f"subtree%")]
+def search_metadata_collection(irods_session: iRODSSession, subtree: str, metadata: dict) -> list:
+    filters = [Like(Collection.name, f"{subtree}%")]
 
-    filters += Criterion("=", CollectionMeta.name, metadata_name)
-    if not isinstance(value, bool):
-        comparison = "like" if value.find("%") != -1 else "="
-        filters += Criterion(comparison, CollectionMeta.value, metadata_value)
+    print(f"search_metadata_collection: {subtree=}, {metadata=}")
+
+    for metadata_name, metadata_value in metadata.items():
+
+        filters += [Criterion("=", CollectionMeta.name, metadata_name)]
+        if not isinstance(metadata_value, bool):
+            comparison = "like" if metadata_value.find("%") != -1 else "="
+            filters += [Criterion(comparison, CollectionMeta.value, metadata_value)]
 
     query_results = irods_session.query(Collection.name).filter(*filters)
 
@@ -41,7 +45,7 @@ def search_metadata_collection(irods_session: iRODSSession, subtree: str, metada
 
 
 @shared_task(name="mango_flow.monitor.irods.collections.metadata", bind = True, base = MangoFlowTask)
-def monitor_subtree_collections_via_metadata(self, subtree: str, metadata_name: str, metadata_value: str | bool, wf_action: str, *args, **kwargs):
+def monitor_subtree_collections_via_metadata(self, subtree: str, metadata: dict, wf_action: str, **kwargs):
     path = pathlib.Path(subtree)
     zone = path.parts[1]
     client_user = kwargs.pop("client_user", None)
@@ -50,7 +54,7 @@ def monitor_subtree_collections_via_metadata(self, subtree: str, metadata_name: 
     except Exception as e:
         return str(e)
     
-    collection_paths = search_metadata_collection(irods_session=irods_session, subtree=subtree, metadata_name=metadata_name, metadata_value=metadata_value)
+    collection_paths = search_metadata_collection(irods_session=irods_session, subtree=subtree, metadata = metadata)
 
     path_input_mode = kwargs.pop("path_input_mode", "single")
     app: Celery = current_app

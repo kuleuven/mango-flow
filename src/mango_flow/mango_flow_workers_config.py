@@ -11,4 +11,7 @@ MANGO_FLOW_MODULES = [
     {
         "module": "plugins.mango_flow.tasks.reporting",
     },
+    {
+        "module": "plugins.mango_flow.tasks.fiber",
+    }
 ]
