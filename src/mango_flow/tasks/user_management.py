@@ -18,7 +18,7 @@ from plugins.operator import get_zone_operator_session
 
 
 def update_irods_users_groups(
-    irods_session: iRODSSession, group_name: str, updated_users: list
+    irods_session: iRODSSession, group_name: str, updated_users: list, realm: str = None
 ) -> dict:
     """
     Compare two user lists and return the added and removed users.
@@ -29,7 +29,9 @@ def update_irods_users_groups(
         group = irods_session.user_groups.get(group_name)
         old_users = [user.name for user in group.members]
     except Exception as e:
-        irods_session.user_groups.create(group_name)
+        new_group = irods_session.user_groups.create(group_name)
+        if realm is not None:
+            new_group.metadata.add("mg.realm", realm)
 
     added = [user for user in updated_users if user not in old_users]
     removed = [user for user in old_users if user not in updated_users]
@@ -113,7 +115,7 @@ def update_irods_users_groups_from_yaml_task(self, yaml_data: dict, **kwargs):
 
         # Update the iRODS users in the group
         result[group_name] = update_irods_users_groups(
-            irods_session, group_name, updated_users
+            irods_session, group_name, updated_users, realm=kwargs.pop("realm", None)
         )
 
     return result
