@@ -61,17 +61,17 @@ def update_users_mango(yaml_data: dict, realm: str):
 
     existing_users = get_members(realm)
 
-    updated_users = set(user for group in yaml_data.values() for user in group)
+    yaml_users = set(user for group in yaml_data.values() for user in group)
 
-    added_users = [user for user in updated_users if user not in existing_users]
+    added_users = [user for user in yaml_users if user not in existing_users]
     # delete users that are gone, except special roles
     removed_users = [
         user
         for user, role in existing_users.items()
-        if user not in updated_users and role not in protected_groups.values()
+        if user not in yaml_users and role not in protected_groups.values()
     ]
     for user in removed_users:
-        updated_users(realm, user)
+        update_user(realm, user)
 
     # new users in protected roles / upgraded users
     protected_role_users = []
@@ -84,19 +84,19 @@ def update_users_mango(yaml_data: dict, realm: str):
         old_users = [
             user for user, role in existing_users.items() if role == group_role
         ]
-        updated_users = yaml_data[group_name]
-        if not isinstance(updated_users, list):
+        group_yaml_users = yaml_data[group_name]
+        if not isinstance(group_yaml_users, list):
             raise ValueError(
-                f"Invalid updated users for group {group_name}: {updated_users}"
+                f"Invalid updated users for group {group_name}: {group_yaml_users}"
             )
-        added = [user for user in updated_users if user not in old_users]
-        removed = [user for user in old_users if user not in updated_users]
+        added = [user for user in group_yaml_users if user not in old_users]
+        removed = [user for user in old_users if user not in group_yaml_users]
         for user in added:
             # either a new user or upgraded to this role
             update_user(realm, user, group_role)
         for user in removed:
             update_user(
-                realm, user, "member" if user in updated_users else None
+                realm, user, "member" if user in yaml_users else None
             )  # downgraded or removed
         protected_role_users += added
 
