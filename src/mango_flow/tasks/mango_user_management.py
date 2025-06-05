@@ -34,26 +34,16 @@ def validate_and_upload_yaml_task(
     bind=True,
 )
 def update_mango_users_groups_from_yaml_task(
-    self, realm: str, yaml_data: dict, **kwargs
+    self, yaml_data: dict, realm: str, **kwargs
 ):
     """
     Task to update users in ManGO and return dict of groups and users to update
     """
-    # can the client user and zone be sent via parameters to the next task??
-    client_user = kwargs.pop("client_user", None)
-    zone = kwargs.pop("zone", None)
-
-    if not zone:
-        raise ValueError("Zone is required")
 
     yaml_data = {
         (k if k.startswith(realm) else f"{realm}_{k}"): v for k, v in yaml_data.items()
     }
-    return {
-        "yaml_data": update_users_mango(yaml_data, realm),
-        "zone": zone,
-        "client_user": client_user,
-    }
+    return update_users_mango(yaml_data, realm)
 
 
 def update_users_mango(yaml_data: dict, realm: str):
@@ -104,7 +94,9 @@ def update_users_mango(yaml_data: dict, realm: str):
         if user not in protected_groups:
             update_user(realm, user, "member")
 
-    return {k: v for k, v in yaml_data if k not in protected_groups and k != realm}
+    return {
+        k: v for k, v in yaml_data.items() if (k not in protected_groups and k != realm)
+    }
 
 
 def get_members(project: str) -> dict:

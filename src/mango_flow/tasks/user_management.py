@@ -78,11 +78,7 @@ def read_yaml_for_user_management_task(self, path: str, **kwargs):
 
         yaml_data = flatten_yaml_dict(yaml_data)
 
-        return {
-            "yaml_data": yaml_data,
-            "zone": zone,
-            "client_user": client_user,
-        }
+        return yaml_data
     except Exception as e:
         raise e
 
