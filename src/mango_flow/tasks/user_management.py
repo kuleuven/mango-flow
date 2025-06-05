@@ -26,10 +26,10 @@ def update_irods_users_groups(
     old_users = []
     # Get the current users in the group
     try:
-        group = irods_session.user_groups.get(group_name)
+        group = irods_session.groups.get(group_name)
         old_users = [user.name for user in group.members]
     except Exception as e:
-        new_group = irods_session.user_groups.create(group_name)
+        new_group = irods_session.groups.create(group_name)
         if realm is not None:
             new_group.metadata.add("mg.realm", realm)
 
@@ -37,9 +37,9 @@ def update_irods_users_groups(
     removed = [user for user in old_users if user not in updated_users]
 
     for user in added:
-        irods_session.user_groups.add_member(group_name, user)
+        irods_session.groups.addmember(group_name, user)
     for user in removed:
-        irods_session.user_groups.remove_member(group_name, user)
+        irods_session.groups.removemember(group_name, user)
 
     return {"added": added, "removed": removed}
 
