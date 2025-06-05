@@ -94,6 +94,11 @@ def update_irods_users_groups_from_yaml_task(self, yaml_data: dict, **kwargs):
     """
     Task to update the iRODS users in one or more groups from a YAML file.
     """
+
+    result = {}
+
+    if len(yaml_data) == 0:
+        return result
     client_user = kwargs.pop("client_user", None)
     zone = kwargs.pop("zone", None)
 
@@ -101,7 +106,6 @@ def update_irods_users_groups_from_yaml_task(self, yaml_data: dict, **kwargs):
         raise ValueError("Zone is required")
 
     irods_session = get_zone_operator_session(zone=zone, client_user=client_user)
-    result = {}
     for group_name, updated_users in yaml_data.items():
         # Check if the updated users is a list
         if not isinstance(updated_users, list):
