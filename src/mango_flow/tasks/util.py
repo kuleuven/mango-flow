@@ -1,5 +1,5 @@
 import yaml
-from irods.session import IRODSSession
+from irods.session import iRODSSession
 
 
 def read_yaml_from_string(input_string: str) -> dict:
@@ -14,7 +14,7 @@ def read_yaml_from_string(input_string: str) -> dict:
         raise ValueError(f"Error reading YAML: {e}")
 
 
-def read_yaml_from_data_object(path: str, irods_session: IRODSSession) -> dict:
+def read_yaml_from_data_object(path: str, irods_session: iRODSSession) -> dict:
     """
     Read a YAML file directly from iRODS and return a dictionary.
     """
@@ -28,7 +28,7 @@ def read_yaml_from_data_object(path: str, irods_session: IRODSSession) -> dict:
 
 
 def write_yaml_to_data_object(
-    path: str, yaml_contents: dict, irods_session: IRODSSession
+    path: str, yaml_contents: dict, irods_session: iRODSSession
 ) -> dict:
     """
     Read a YAML file directly from iRODS and return a dictionary.
