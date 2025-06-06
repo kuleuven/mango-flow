@@ -37,14 +37,16 @@ def mango_flow_schedule_heartbeat() -> str:
 @shared_task(name="mango_flow.irods.chain.path", bind=True)
 def mango_flow_chain_path_tasks(self, path: str, tasks: list):
     """"""
-    start_task = tasks.pop(0)
+    initial_task_dict = tasks.pop(0)
     # the entrypoint of the chain includes the (initial) path as the first argument
-    task_chain = signature(
-        start_task["name"], args=[path], kwargs=start_task["parameters"]
+    initial_task = signature(
+        initial_task_dict["name"], args=[path], kwargs=initial_task_dict["parameters"]
     )
-    for task in tasks:
-        # the rest are signature partials, the output of the first task will be injected as the first arg in the next
-        task_chain.link(signature(task["name"], kwargs=task["parameters"]))
+    task_chain = chain(initial_task, *[signature(task["name"], kwargs=task["parameters"]) for task in tasks])
+    
+    # for task in tasks:
+    #     # the rest are signature partials, the output of the first task will be injected as the first arg in the next
+    #    remainig_tasks.addsignature(task["name"], kwargs=task["parameters"]))
 
     task_chain.apply_async()
 
@@ -109,7 +111,7 @@ mango_flow = Celery(
     broker_connection_retry_on_startup=True,
     broker_connection_max_retries=None,
     broker_channel_error_retry=True,
-    worker_concurrency=8,
+    worker_concurrency=2,
     beat_max_loop_interval=10,  # seconds
     beat_schedule=beat_schedule,
 )

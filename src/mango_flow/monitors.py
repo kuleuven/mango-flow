@@ -60,9 +60,8 @@ def monitor_subtree_collections_via_metadata(self, subtree: str, metadata: dict,
     app: Celery = current_app
     if path_input_mode == "single":
         for collection in collection_paths:
-            args = [collection]
             task: signature = app.signature(
-                wf_action, args=args, kwargs=kwargs["kwargs"]
+                wf_action, args=[collection], kwargs=kwargs["kwargs"]
             )
             task.apply_async()
 
