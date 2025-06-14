@@ -1,5 +1,5 @@
 import yaml
-from irods.session import IRODSSession
+from irods.session import iRODSSession
 
 
 def read_yaml_from_string(input_string: str) -> dict:
@@ -14,7 +14,7 @@ def read_yaml_from_string(input_string: str) -> dict:
         raise ValueError(f"Error reading YAML: {e}")
 
 
-def read_yaml_from_data_object(path: str, irods_session: IRODSSession) -> dict:
+def read_yaml_from_data_object(path: str, irods_session: iRODSSession) -> dict:
     """
     Read a YAML file directly from iRODS and return a dictionary.
     """
@@ -25,6 +25,18 @@ def read_yaml_from_data_object(path: str, irods_session: IRODSSession) -> dict:
         return read_yaml_from_string(yaml_string)
     except Exception as e:
         raise ValueError(f"Error reading YAML from data object: {e}")
+
+
+def write_yaml_to_data_object(
+    path: str, yaml_contents: dict, irods_session: iRODSSession
+) -> dict:
+    """
+    Read a YAML file directly from iRODS and return a dictionary.
+    """
+    data_object = irods_session.data_objects.create(path)
+    with data_object.open("w") as file:
+        yaml_string = yaml.dump(yaml_contents)
+        file.write(yaml_string.encode())
 
 
 def get_list_diff(old: list, new: list) -> dict:

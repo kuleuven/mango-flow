@@ -2,6 +2,7 @@ import yaml
 import pathlib
 from celery.schedules import crontab, schedule, solar
 
+
 def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
     # a YAML file can have several "docs"
     try:
@@ -15,6 +16,11 @@ def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
     for zone in mf_zone_config.keys():
         mf_zone_config[zone].pop("zone")
     return mf_zone_config
+
+
+def add_parameters_if_empty(task):
+    if "parameters" not in task:
+        task["parameters"] = {}
 
 
 def parse_beat_flow_item(item_config: dict) -> dict:
@@ -61,6 +67,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     ) == "chain":
         # propagate/inject client_user if needed
         for task in flow["action"]:
+            add_parameters_if_empty(task)
             if client_user and "client_user" not in task["parameters"]:
                 task["parameters"]["client_user"] = client_user
         # now call the task chain
@@ -75,9 +82,11 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     ) == "chord":
         # propagate/inject client_user if needed
         for task in flow["header_actions"]:
+            add_parameters_if_empty(task)
             if client_user and "client_user" not in task["parameters"]:
                 task["parameters"]["client_user"] = client_user
         for task in flow["aggregate_actions"]:
+            add_parameters_if_empty(task)
             if client_user and "client_user" not in task["parameters"]:
                 task["parameters"]["client_user"] = client_user
         # now call the task chain
