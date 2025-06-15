@@ -1,9 +1,13 @@
-from .util import read_yaml_from_data_object
+import logging
 
-from irods.session import iRODSSession
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from irods.data_object import iRODSDataObject
+from irods.session import iRODSSession
+from irods.access import iRODSAccess
 from plugins.operator import get_zone_operator_session
+
+from .util import read_yaml_from_data_object
 
 """Two possible approaches:
 
@@ -16,6 +20,7 @@ from plugins.operator import get_zone_operator_session
 
 """
 
+logger = logging.getLogger(__name__)
 
 def update_irods_users_groups(
     irods_session: iRODSSession, group_name: str, updated_users: list, realm: str = None
@@ -119,3 +124,66 @@ def update_irods_users_groups_from_yaml_task(self, yaml_data: dict, **kwargs):
         )
 
     return result
+
+
+@shared_task(name="mango_flow.tasks.user_management.enfore_acls_parent", bind=True)
+def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
+    """
+    Enforce ACLs on the parent collection of the destination path. This is especially useful for move operations 
+    where the parent collections typically has or get the ACLs through inheritance
+
+    """
+    logger.info(f"user_management_enforce_acls_parent: {dest_path=}, {kwargs=}")
+    client_user = kwargs.pop("client_user", None)
+
+    logger.info(f"user_management_enforce_acls_parentt: {client_user=}")
+    recursive = kwargs.pop("recursive", True)
+    logger.info(f"user_management_enforce_acls_parent: {recursive=}")
+    discard_existing_acls = kwargs.pop("discard_existing_acls", False)
+
+    irods_session: iRODSSession = get_zone_operator_session(
+        zone=dest_path.split("/")[1] # , client_user=client_user
+    )
+
+    collection: iRODSCollection = irods_session.collections.get(dest_path)
+
+    parent_collection = irods_session.collections.get(
+        "/".join(dest_path.split("/")[:-1])
+    )
+    logger.info(f"user_management_enforce_acls_parent: parentpath =  {parent_collection.path}")
+
+    parent_acls = irods_session.acls.get(parent_collection, report_raw_acls=True)
+    current_acls = irods_session.acls.get(
+        collection, report_raw_acls=True,
+    )
+
+    if discard_existing_acls:
+        for acl in current_acls:
+            irods_session.acls.set(
+                iRODSAccess(
+                    "null",
+                    collection.path,
+                    user_name=acl.user_name,
+                    user_type=acl.user_type,
+                    user_zone=acl.user_zone,
+                ),
+                recursive=recursive,
+                admin=True,
+            )
+        logger.info(f"user_management_enforce_acls_parent: discarded existing ACLs on collection {collection.path}")
+
+    for parent_acl in parent_acls:
+        irods_session.acls.set(
+            iRODSAccess(
+                parent_acl.access_name,
+                collection.path,
+                user_name=parent_acl.user_name,
+                user_type=parent_acl.user_type,
+                user_zone=parent_acl.user_zone,
+            ),
+            recursive=recursive,
+            admin=True
+        )
+
+    return dest_path
+
