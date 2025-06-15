@@ -2,9 +2,10 @@ import logging
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from irods.access import iRODSAccess
+from irods.collection import iRODSCollection
 from irods.data_object import iRODSDataObject
 from irods.session import iRODSSession
-from irods.access import iRODSAccess
 from plugins.operator import get_zone_operator_session
 
 from .util import read_yaml_from_data_object
