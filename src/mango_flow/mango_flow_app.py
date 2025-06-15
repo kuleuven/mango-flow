@@ -1,5 +1,5 @@
 # This app should be launched from the Mango Portal project root
-
+import logging
 from celery import Celery, shared_task, xmap, xstarmap, chord, group, chunks
 from celery.result import GroupResult
 from celery.canvas import chain, signature
@@ -14,11 +14,10 @@ class MFException(Exception):
     def __init__(self, message="Mango Flow error", **params):
         super().__init__(f"{message} : {params}")
 
+logger = logging.getLogger(__name__)
 
 broker = os.environ.get("MANGO_FLOW_BROKER", "redis://localhost:6379/0")
 backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
-
-mf_logger = logging.getLogger(__name__)
 
 for task_group in MANGO_FLOW_MODULES:
     module = import_module(task_group["module"])
@@ -85,6 +84,15 @@ def mango_flow_chord_chain(
 
     result = chord(chord_header_tasks, aggregate_signature).apply_async()
     return f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+
+
+@shared_task(name="mango_flow.tasks.noop", bind=True)
+def mango_flow_noop(self, *args, **kwargs):
+    """
+    No operation task debugging.
+    """
+    logger.info(f"mango_flow_noop: {args=}, {kwargs=}")
+    return None
 
 
 beat_schedule = {
