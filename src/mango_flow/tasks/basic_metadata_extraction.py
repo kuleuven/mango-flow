@@ -1,18 +1,18 @@
-import re
-import multidict
+import logging
 import pathlib
+import re
 import tempfile
 
+import multidict
 from celery import shared_task
-from plugins.operator import get_zone_operator_session
+from irods.collection import iRODSCollection
+from irods.data_object import iRODSDataObject
 from irods.meta import AVUOperation, iRODSMeta
 from irods.session import iRODSSession
-from irods.data_object import iRODSDataObject
-from irods.collection import iRODSCollection
-import pprint
-
 from plugins.mango_flow import MangoFlowTask
+from plugins.operator import get_zone_operator_session
 
+logger = logging.getLogger(__name__)
 
 class MFMetaDataExtractionError(Exception):
     def __init__(self, message="Mango Flow Metadata Extraction Error", **params):
@@ -56,7 +56,7 @@ def extract_metadata_from_path(
                         if apply_first_value_mapping_only:
                             break # the first match is used
             if key in split_metadata:
-                # print(f"Splitting {key} with {split_metadata[key]}")
+                # logger.info(f"Splitting {key} with {split_metadata[key]}")
                 value = re.split(split_metadata[key], value)
 
             extracted_metadata[mapper.get(key, key)] = value
@@ -92,7 +92,7 @@ def extract_metadata_from_marked_file_header(
                 )
                 if metadata_match:
                     result_dict = metadata_match.groupdict()
-                    # print(f"Captured metadata: {result_dict}")
+                    # logger.info(f"Captured metadata: {result_dict}")
                     metadata.add(
                         result_dict["variable_name"], result_dict["variable_value"]
                     )
@@ -148,7 +148,6 @@ def bulk_add_metadata(
                 )
 
         if len(avu_operations):
-            # pprint.pp(avu_operations)
             item.metadata(admin=as_admin).apply_atomic_operations(*avu_operations)
 
 
@@ -163,12 +162,12 @@ def wrap_extract_metadata_from_path(self, path, **kwargs):
 
     zone = pathlib.Path(path).parts[1]
 
-    print(f"Entering metadata extraction for zone {zone}, path {path}")
+    logger.info(f"Entering metadata extraction for zone {zone}, path {path}")
     client_user = kwargs.pop("client_user", None)
     irods_session = get_zone_operator_session(zone, client_user=client_user)
     # @todo: make parameters explicit
     metadata_items = extract_metadata_from_path(path, **kwargs)
-    pprint.pp(f"Here is what I found: {metadata_items.keys()}")
+    logger.info(f"Here is what I found: {metadata_items.keys()}")
     data_object = irods_session.data_objects.get(path)
     as_admin = False if client_user else True
     bulk_add_metadata(
@@ -241,7 +240,7 @@ def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
     with data_object.open("r") as f:
         blub = f.read(buffer_size)
     if blub:
-        print("Creating temp file for header extraction")
+        logger.info("Creating temp file for header extraction")
         with tempfile.NamedTemporaryFile(
             delete=False, mode="w+", encoding="utf-8"
         ) as fp:
@@ -251,7 +250,7 @@ def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
             metadata_items = extract_metadata_from_marked_file_header(
                 filename=fp.name, **kwargs
             )
-            # print(f"Extracted metadata from header: {metadata_items}")
+            # logger.info(f"Extracted metadata from header: {metadata_items}")
             as_admin = False if client_user else True
             bulk_add_metadata(
                 data_object,

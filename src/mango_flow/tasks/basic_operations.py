@@ -1,19 +1,21 @@
-import re, pathlib, jinja2
 import datetime
+import logging
+import pathlib
+import re
+import time
 import zoneinfo
 
-from irods.session import iRODSSession
+import jinja2
+from celery import Task, shared_task, signature
 from irods.access import iRODSAccess
 from irods.data_object import iRODSDataObject
-from irods.meta import iRODSMeta, AVUOperation
 from irods.exception import CollectionDoesNotExist
-from celery import shared_task, Task
-from celery import signature
-from plugins.operator import get_zone_operator_session
-import time
+from irods.meta import AVUOperation, iRODSMeta
+from irods.session import iRODSSession
 from plugins.mango_flow import MangoFlowTask
+from plugins.operator import get_zone_operator_session
 
-
+logger = logging.getLogger(__name__)
 class MFBasicIngestException(Exception):
     def __init__(self, message="Mango Flow basic ingest error", **params):
         super().__init__(f"{message} : {params}")
@@ -47,7 +49,7 @@ def parse_input_path_element_regex(path_element: str):
 
 
 def parse_input_path_regex(in_path: str | pathlib.PurePath) -> dict:
-    # if the input is a string, normalize it to a PurePath
+    # if the input is a string, convert it to a PurePath
     if type(in_path) == str:
         in_path = pathlib.PurePath(in_path)
 
@@ -189,7 +191,7 @@ def data_object_read_in_chunks(data_object: iRODSDataObject, read_buffer_size):
             file_chunk = f.read(read_bytes)
             bytes_read = len(file_chunk)
             position += bytes_read
-            print(
+            logger.info(
                 f"{data_object.name}: sending {position} bytes after {time.perf_counter()-start}"
             )
             yield file_chunk
