@@ -1,6 +1,9 @@
+import pathlib
+
 import celery
 import irods.exception
-import pathlib
+
+
 class MangoFlowTask(celery.Task):
     """Custom implementation of a celery Task class"""
 
@@ -8,5 +11,3 @@ class MangoFlowTask(celery.Task):
     retry_backoff = True  # exponential backoff
     retry_backoff_max = 1800  # 30 min is the maximum to wait between retries, but it will try for much longer in total
     # retry_jitter = True  # default, avoid thermonuclear reactions
-
-        
