@@ -13,5 +13,9 @@ MANGO_FLOW_MODULES = [
     },
     {
         "module": "plugins.mango_flow.tasks.fiber",
-    }
+    },
+    # {
+    #     "module": "plugins.mango_flow.tasks.exiftool_metadata_extraction",
+    # },
+    
 ]
