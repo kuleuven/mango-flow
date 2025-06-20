@@ -123,7 +123,7 @@ def update_user(project: str, username: str, role: str = None):
         )
     elif role is None:
         # delete user
-        response = requests.put(endpoint, headers=header)
+        response = requests.delete(endpoint, headers=header)
     else:
         raise ValueError(f"Role must be one of {'/'.join(valid_roles)} or `None`.")
     response.raise_for_status()
