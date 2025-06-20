@@ -68,6 +68,8 @@ def update_users_mango(yaml_data: dict, realm: str):
 
     # check protected groups
     for group_name, group_role in protected_groups.items():  # dealt with first
+        if group_role == "responsible":
+            continue # do not attempt to modify responsible
         if group_name not in yaml_data or not isinstance(yaml_data[group_name], list):
             # if the group is not defined here, it is left unchanged
             continue
