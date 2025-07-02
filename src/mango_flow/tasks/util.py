@@ -1,3 +1,4 @@
+import re
 import yaml
 from irods.session import iRODSSession
 
