@@ -72,11 +72,7 @@ def filter_metadata_dict(
 def exiftool_extract_metadata_task(self, path: str, **kwargs):
     """
     Extract metadata from a file using ExifTool.
-
     :param path: The path to the file from which to extract metadata.
-    :param mode: The mode of extraction, either "sidecar" or "poorirods".
-    :param sidecar_ext: The extension for the sidecar file if mode is "sidecar".
-    :return: Metadata extracted from the file.
     """
 
     if allowed := kwargs.pop("allowed", None):
@@ -108,13 +104,15 @@ def exiftool_extract_metadata_task(self, path: str, **kwargs):
                 )
                 return path
 
-    client_user = kwargs.pop("client_user", None)
     mode = kwargs.pop("mode", "sidecar")
 
+    client_user = kwargs.pop("client_user", None)
     zone = pathlib.Path(path).parts[1]
     irods_session: iRODSSession = get_zone_operator_session(
         zone, client_user=client_user
     )
+
+    #max_size = kwargs.pop("max_size", 500)
 
     metadata = None
 
@@ -181,13 +179,15 @@ def exiftool_extract_metadata_task(self, path: str, **kwargs):
             logger.error(f"Failed to add metadata to iRODS data object {path}: {e}")
             return {}
     elif mode == "propagate":
-        #propagate metadata to the next task, returning the path along the metadata
+        # propagate metadata to the next task, returning the path along the metadata
         return {
             "path": path,
             "metadata": metadata,
         }
     else:
-        logger.error(f"Unknown mode {mode} for metadata extraction. metadata is ignored.")
+        logger.error(
+            f"Unknown mode {mode} for metadata extraction. metadata is ignored."
+        )
         # Maybe we should raise an exception here?
 
     return path

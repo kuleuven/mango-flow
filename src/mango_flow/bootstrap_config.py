@@ -49,9 +49,11 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         "monitoring_offset": monitoring_offset,
     }
 
-    # process parameters for metadata monitoring
-    if item_config["match"].get("metadata", None):
-        beatconfig["kwargs"]["metadata"] = item_config["match"]["metadata"]
+    # process parameters for optional metadata monitoring
+    beatconfig["kwargs"]["metadata"] = item_config["match"].get("metadata", {})
+    beatconfig["kwargs"]["data_object_name_pattern"] = item_config["match"].get(
+        "data_object_name_pattern", ''
+    )
 
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
         "mode"

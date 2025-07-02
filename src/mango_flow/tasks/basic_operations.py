@@ -6,16 +6,18 @@ import time
 import zoneinfo
 
 import jinja2
-from celery import Task, shared_task, signature
+from celery import shared_task
 from irods.access import iRODSAccess
 from irods.data_object import iRODSDataObject
 from irods.exception import CollectionDoesNotExist
-from irods.meta import AVUOperation, iRODSMeta
+from irods.meta import AVUOperation
 from irods.session import iRODSSession
 from plugins.mango_flow import MangoFlowTask
 from plugins.operator import get_zone_operator_session
 
 logger = logging.getLogger(__name__)
+
+
 class MFBasicIngestException(Exception):
     def __init__(self, message="Mango Flow basic ingest error", **params):
         super().__init__(f"{message} : {params}")
@@ -50,7 +52,7 @@ def parse_input_path_element_regex(path_element: str):
 
 def parse_input_path_regex(in_path: str | pathlib.PurePath) -> dict:
     # if the input is a string, convert it to a PurePath
-    if type(in_path) == str:
+    if isinstance(in_path, str):
         in_path = pathlib.PurePath(in_path)
 
     path_regex_list = []
@@ -164,7 +166,7 @@ def irods_ingest_copy_data_object_local(
             dst_data_object = irods_session.data_objects.get(dst)
             all_metadata_src = src_data_object.metadata.items()
             md_operations = []
-            metadata_is_list = True if type(metadata) == list else False
+            metadata_is_list = True if isinstance(metadata, list) else False
             for avu in all_metadata_src:
                 if metadata == "all" or (metadata_is_list and avu.name in metadata):
                     md_operations.append(AVUOperation(operation="add", avu=avu))
@@ -335,8 +337,6 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     else:
         # raise an error in case of no match to break any further processing in chains
         raise (MFBasicIngestException(no_match_copy_do=path))
-
-
 
 
 @shared_task(
