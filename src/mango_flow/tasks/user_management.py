@@ -5,7 +5,7 @@ from celery.utils.log import get_task_logger
 from irods.access import iRODSAccess
 from irods.collection import iRODSCollection
 from irods.session import iRODSSession
-from plugins.operator import get_zone_operator_session
+from .. import get_zone_operator_session
 
 from .util import read_yaml_from_data_object
 from ..lib.patterns import mango_flow_regex_search_path

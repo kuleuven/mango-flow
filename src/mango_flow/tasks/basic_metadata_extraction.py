@@ -9,8 +9,7 @@ from irods.collection import iRODSCollection
 from irods.data_object import iRODSDataObject
 from irods.meta import AVUOperation, iRODSMeta
 from irods.session import iRODSSession
-from plugins.mango_flow import MangoFlowTask
-from plugins.operator import get_zone_operator_session
+from .. import get_zone_operator_session, MangoFlowTask
 
 logger = logging.getLogger(__name__)
 
