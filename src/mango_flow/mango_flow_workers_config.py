@@ -1,21 +1,24 @@
 MANGO_FLOW_MODULES = [
     {
-        "module": "plugins.mango_flow.tasks.basic_operations",
+        "module": ".tasks.basic_operations",
     },
     {
-        "module": "plugins.mango_flow.tasks.basic_metadata_extraction",
+        "module": ".tasks.basic_metadata_extraction",
     },
     {
-        "module": "plugins.mango_flow.monitors",
+        "module": ".monitors",
     },
     {
-        "module": "plugins.mango_flow.tasks.reporting",
+        "module": ".tasks.reporting",
     },
     {
-        "module": "plugins.mango_flow.tasks.fiber",
+        "module": ".tasks.fiber",
     },
-    # {
-    #     "module": "plugins.mango_flow.tasks.exiftool_metadata_extraction",
-    # },
+    {
+        "module": ".tasks.exiftool_metadata_extraction",
+    },
+    {
+        "module": ".tasks.user_management",
+    },
     
 ]

@@ -1,13 +1,14 @@
 # This app should be launched from the Mango Portal project root
 import logging
-from celery import Celery, shared_task, xmap, xstarmap, chord, group, chunks
-from celery.result import GroupResult
-from celery.canvas import chain, signature
+import os
 from importlib import import_module
+
+from celery import Celery, chord, chunks, group, shared_task, xmap, xstarmap
+from celery.canvas import chain, signature
+#from celery.result import GroupResult
+
 from .bootstrap_config import get_beat_configs_from_global_file
 from .mango_flow_workers_config import MANGO_FLOW_MODULES
-import logging
-import os
 
 
 class MFException(Exception):
@@ -20,7 +21,8 @@ broker = os.environ.get("MANGO_FLOW_BROKER", "redis://localhost:6379/0")
 backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
 
 for task_group in MANGO_FLOW_MODULES:
-    module = import_module(task_group["module"])
+    # @todo: read the package name from elsewhere
+    module = import_module(task_group["module"], package=task_group.get('package', 'plugins.mango_flow'))
 
 
 @shared_task(name="mango_flow.heartbeat")
@@ -47,7 +49,7 @@ def mango_flow_chain_path_tasks(self, path: str, tasks: list):
     #     # the rest are signature partials, the output of the first task will be injected as the first arg in the next
     #    remainig_tasks.addsignature(task["name"], kwargs=task["parameters"]))
 
-    task_chain.apply_async()
+    return task_chain.apply_async()
 
 
 @shared_task(name="mango_flow.irods.chord.chain.path", bind=True)
@@ -83,7 +85,8 @@ def mango_flow_chord_chain(
         )
 
     result = chord(chord_header_tasks, aggregate_signature).apply_async()
-    return f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+    logger.info(f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }")
+    return result
 
 
 @shared_task(name="mango_flow.tasks.noop", bind=True)
