@@ -9,7 +9,7 @@ from celery import shared_task
 from exiftool import ExifToolHelper
 from irods.session import iRODSSession
 from .basic_metadata_extraction import bulk_add_metadata
-from plugins.operator import get_zone_operator_session
+from .. import get_zone_operator_session
 
 logger = logging.getLogger(__name__)
 

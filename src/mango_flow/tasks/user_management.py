@@ -4,11 +4,11 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 from irods.access import iRODSAccess
 from irods.collection import iRODSCollection
-from irods.data_object import iRODSDataObject
 from irods.session import iRODSSession
 from plugins.operator import get_zone_operator_session
 
 from .util import read_yaml_from_data_object
+from ..lib.patterns import mango_flow_regex_search_path
 
 """Two possible approaches:
 
@@ -35,7 +35,7 @@ def update_irods_users_groups(
     try:
         group = irods_session.groups.get(group_name)
         old_users = [user.name for user in group.members]
-    except Exception as e:
+    except Exception:
         new_group = irods_session.groups.create(group_name)
         if realm is not None:
             new_group.metadata.add("mg.realm", realm)
@@ -193,3 +193,44 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
         )
 
     return dest_path
+
+
+def enforce_acls(self, irods_session: iRODSSession, path: str, acls: list[dict], recursive: bool = True):
+    """
+    Enforce ACLs on a given path. This is especially useful for move operations
+    where the parent collections typically has or get the ACLs through inheritance
+    """
+    # Todo check if the user_name exists
+    for acl in acls:
+        irods_session.acls.set(
+            iRODSAccess(
+                acl["access_name"],
+                path,
+                user_name=acl["user_name"],
+                user_type=acl.get("user_type", "rodsgroup"),
+                user_zone=acl.get("user_zone", irods_session.zone)
+            ),
+            recursive=recursive,
+            admin=True,
+        )
+
+
+@shared_task(name="mango_flow.tasks.user_management.enforce_acls", bind=True)
+def user_management_enforce_acls(self, path: str, path_regex: str, **kwargs):
+    """
+    Enforce ACLs on a given path using patterns
+    """
+    logger.info(f"user_management_enforce_acls: {path=}, {kwargs=}")
+    #client_user = kwargs.pop("client_user", None)
+    recursive = kwargs.pop("recursive", True)
+
+    irods_session: iRODSSession = get_zone_operator_session(
+        zone=dest_path.split("/")[1]  # , client_user=client_user
+    )
+
+    collection = irods_session.collections.get(dest_path)
+
+    acls = kwargs.pop("acls", [])
+    enforce_acls(self, irods_session, collection.path, acls, recursive=recursive, **kwargs)
+
+    return path
