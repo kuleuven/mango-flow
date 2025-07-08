@@ -68,7 +68,7 @@ def get_sub_paths_with_positions(path: str) -> dict:
 def mango_flow_regex_search_path(
     mango_regex_pattern: str,
     path: str,
-) -> dict | None:
+) -> dict[str, str] | None:
     r"""
     Like `mango_flow_regex_search`, but specifically designed for path-like strings for which a sub path
     is to be used as well (for example to fetch metadata).

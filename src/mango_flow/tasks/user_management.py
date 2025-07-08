@@ -5,10 +5,10 @@ from celery.utils.log import get_task_logger
 from irods.access import iRODSAccess
 from irods.collection import iRODSCollection
 from irods.session import iRODSSession
-from .. import get_zone_operator_session
+from .. import get_zone_operator_session, mf_apply_jinja2_template, MangoFlowTask
 
 from .util import read_yaml_from_data_object
-from ..lib.patterns import mango_flow_regex_search_path
+from ..lib.patterns import mango_flow_regex_search_path, mango_flow_regex_search
 
 """Two possible approaches:
 
@@ -205,20 +205,77 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
     return dest_path
 
 
-def enforce_acls(self, irods_session: iRODSSession, path: str, acls: list[dict], recursive: bool = True):
+def enforce_acls(
+    self,
+    irods_session: iRODSSession,
+    path: str,
+    acls: list[dict],
+    recursive: bool = True,
+    discard_existing_acls: bool = True,
+    handle_missing_user_or_group: str = "raise_error",  # 'raise_error', 'ignore', 'create'
+):
     """
     Enforce ACLs on a given path. This is especially useful for move operations
     where the parent collections typically has or get the ACLs through inheritance
     """
+
+    if discard_existing_acls:
+        current_acls = irods_session.acls.get(
+            path,
+            report_raw_acls=True,
+        )
+
+        for acl in current_acls:
+            irods_session.acls.set(
+                iRODSAccess(
+                    "null",
+                    collection.path,
+                    user_name=acl.user_name,
+                    user_type=acl.user_type,
+                    user_zone=acl.user_zone,
+                ),
+                recursive=recursive,
+                admin=True,
+            )
+        logger.info(
+            f"user_management_enforce_acls: discarded existing ACLs on collection {path}"
+        )
     # Todo check if the user_name exists
     for acl in acls:
+        try:
+            irods_session.users.get(acl["user_name"])
+        except Exception as e:
+            if handle_missing_user_or_group == "raise_error":
+                raise ValueError(f"User {acl['user_name']} cannot be found: {e}")
+            elif handle_missing_user_or_group == "create":
+                # Create the user if it does not exist
+                try:
+                    irods_session.users.create(
+                        acl["user_name"],
+                        user_type=acl.get("user_type", "rodsgroup"),
+                        user_zone=acl.get("user_zone", irods_session.zone),
+                    )
+                except Exception as e:
+                    raise ValueError(
+                        f"Failed to create user {acl['user_name']}: {e}"
+                    ) from e
+            elif handle_missing_user_or_group == "ignore":
+                logger.warning(
+                    f"User {acl['user_name']} does not exist in iRODS, ignoring ACL enforcement."
+                )
+                continue
+            else:
+                raise ValueError(
+                    f"Invalid handle_missing_user_or_group option: {handle_missing_user_or_group}"
+                )
+
         irods_session.acls.set(
             iRODSAccess(
                 acl["access_name"],
                 path,
                 user_name=acl["user_name"],
                 user_type=acl.get("user_type", "rodsgroup"),
-                user_zone=acl.get("user_zone", irods_session.zone)
+                user_zone=acl.get("user_zone", irods_session.zone),
             ),
             recursive=recursive,
             admin=True,
@@ -231,16 +288,42 @@ def user_management_enforce_acls(self, path: str, path_regex: str, **kwargs):
     Enforce ACLs on a given path using patterns
     """
     logger.info(f"user_management_enforce_acls: {path=}, {kwargs=}")
-    #client_user = kwargs.pop("client_user", None)
     recursive = kwargs.pop("recursive", True)
 
     irods_session: iRODSSession = get_zone_operator_session(
-        zone=dest_path.split("/")[1]  # , client_user=client_user
+        zone=path.split("/")[1]  # , client_user=client_user
     )
 
-    collection = irods_session.collections.get(dest_path)
+    extracted_dict = mango_flow_regex_search_path(
+        mango_regex_pattern=path_regex, path=path
+    )
 
-    acls = kwargs.pop("acls", [])
-    enforce_acls(self, irods_session, collection.path, acls, recursive=recursive, **kwargs)
+    unprocessed_acls = kwargs.pop("acls", [])
+    acls = []
+    discard_existing_acls = kwargs.pop("discard_existing_acls", True)
+    handle_missing_user_or_group = kwargs.pop(
+        "handle_missing_user_or_group", "raise_error"
+    )
+    if unprocessed_acls:
+        for acl in unprocessed_acls:
+            acl["user_name"] = mf_apply_jinja2_template(
+                acl["user_name"], **extracted_dict
+            )
+            acls.append(acl)
+
+        enforce_acls(
+            self,
+            irods_session,
+            path,
+            acls,
+            recursive=recursive,
+            discard_existing_acls=discard_existing_acls,
+            handle_missing_user_or_group=handle_missing_user_or_group,
+            **kwargs,
+        )
+    else:
+        logger.warning(
+            f"No ACLs found for path {path} with regex {path_regex}. Skipping enforcement."
+        )
 
     return path

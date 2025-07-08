@@ -290,7 +290,7 @@ def test_pattern_and_jinja_transform(self, path, path_regex, dst_template, **kwa
     A task to test the path regex and jinja2 template transformation on a given irods path"
     """
     result_dict = mango_flow_regex_search_path(
-        path=path, mango_regex_pattern=path_regex
+        mango_regex_pattern=path_regex, path=path, 
     )
 
     # decorate the result with the irods object if any:

@@ -1,4 +1,4 @@
-import re
+# -*- coding: utf-8 -*-
 import yaml
 from irods.session import iRODSSession
 
