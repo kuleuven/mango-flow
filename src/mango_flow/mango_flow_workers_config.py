@@ -20,5 +20,5 @@ MANGO_FLOW_MODULES = [
     {
         "module": ".tasks.user_management",
     },
-    
+    {"module": ".tasks.mango_user_management"},
 ]

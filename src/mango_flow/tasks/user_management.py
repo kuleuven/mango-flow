@@ -54,12 +54,17 @@ def update_irods_users_groups(
 @shared_task(
     name="mango_flow.tasks.users_management.read_yaml_for_user_management", bind=True
 )
-def read_yaml_for_user_management_task(self, path: str, **kwargs):
+def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwargs):
     """
     Task to update the iRODS users in one or more groups from a YAML file.
     """
     client_user = kwargs.pop("client_user", None)
-    zone = kwargs.pop("zone", None)
+    path_info = mango_flow_regex_search_path(path_regex, path)
+    zone = (
+        path_info["zone"]["value"] if "zone" in path_info else kwargs.pop("zone", None)
+    )
+
+    realm = path_info["realm"]["value"] if "realm" in path_info else None
 
     if not zone:
         raise ValueError("Zone is required")
@@ -85,7 +90,7 @@ def read_yaml_for_user_management_task(self, path: str, **kwargs):
 
         yaml_data = flatten_yaml_dict(yaml_data)
 
-        return yaml_data
+        return {"yaml_data": yaml_data, "zone": zone, "realm": realm}
     except Exception as e:
         raise e
 
@@ -97,20 +102,25 @@ def read_yaml_for_user_management_task(self, path: str, **kwargs):
     name="mango_flow.tasks.user_management.update_irods_users_groups_from_yaml",
     bind=True,
 )
-def update_irods_users_groups_from_yaml_task(self, yaml_data: dict, **kwargs):
+def update_irods_users_groups_from_yaml_task(
+    self, task_input: dict[str : dict | str], **kwargs
+):
     """
     Task to update the iRODS users in one or more groups from a YAML file.
     """
 
     result = {}
+    yaml_data = task_input.get("yaml_data", {})
 
     if len(yaml_data) == 0:
-        return result
+        return task_input
     client_user = kwargs.pop("client_user", None)
-    zone = kwargs.pop("zone", None)
+    zone = kwargs.pop("zone", task_input.get("zone", None))
 
     if not zone:
         raise ValueError("Zone is required")
+
+    realm = kwargs.pop("realm", task_input.get("realm", None))
 
     irods_session = get_zone_operator_session(zone=zone, client_user=client_user)
     for group_name, updated_users in yaml_data.items():
@@ -122,10 +132,10 @@ def update_irods_users_groups_from_yaml_task(self, yaml_data: dict, **kwargs):
 
         # Update the iRODS users in the group
         result[group_name] = update_irods_users_groups(
-            irods_session, group_name, updated_users, realm=kwargs.pop("realm", None)
+            irods_session, group_name, updated_users, realm=realm
         )
 
-    return result
+    return {"result": result, "realm": realm, "zone": zone}
 
 
 @shared_task(name="mango_flow.tasks.user_management.enfore_acls_parent", bind=True)
