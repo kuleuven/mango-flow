@@ -1,11 +1,13 @@
-# This app should be launched from the Mango Portal project root
+# -*- coding: utf-8 -*-
+# This app should be launched from the Mango Portal project root, 
+# it contains the ManGO Flow Celery app
+
 import logging
 import os
 from importlib import import_module
 
-from celery import Celery, chord, chunks, group, shared_task, xmap, xstarmap
+from celery import Celery, chord, shared_task
 from celery.canvas import chain, signature
-#from celery.result import GroupResult
 
 from .bootstrap_config import get_beat_configs_from_global_file
 from .mango_flow_workers_config import MANGO_FLOW_MODULES
@@ -15,14 +17,17 @@ class MFException(Exception):
     def __init__(self, message="Mango Flow error", **params):
         super().__init__(f"{message} : {params}")
 
+
 logger = logging.getLogger(__name__)
 
 broker = os.environ.get("MANGO_FLOW_BROKER", "redis://localhost:6379/0")
 backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
 
 for task_group in MANGO_FLOW_MODULES:
-    # @todo: read the package name from elsewhere
-    module = import_module(task_group["module"], package=task_group.get('package', 'plugins.mango_flow'))
+    # @todo: read the default package name from elsewhere, as it may be an installed package
+    module = import_module(
+        task_group["module"], package=task_group.get("package", "plugins.mango_flow")
+    )
 
 
 @shared_task(name="mango_flow.heartbeat")
@@ -43,8 +48,11 @@ def mango_flow_chain_path_tasks(self, path: str, tasks: list):
     initial_task = signature(
         initial_task_dict["name"], args=[path], kwargs=initial_task_dict["parameters"]
     )
-    task_chain = chain(initial_task, *[signature(task["name"], kwargs=task["parameters"]) for task in tasks])
-    
+    task_chain = chain(
+        initial_task,
+        *[signature(task["name"], kwargs=task["parameters"]) for task in tasks],
+    )
+
     # for task in tasks:
     #     # the rest are signature partials, the output of the first task will be injected as the first arg in the next
     #    remainig_tasks.addsignature(task["name"], kwargs=task["parameters"]))
@@ -85,7 +93,9 @@ def mango_flow_chord_chain(
         )
 
     result = chord(chord_header_tasks, aggregate_signature).apply_async()
-    logger.info(f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }")
+    logger.info(
+        f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+    )
     return result
 
 

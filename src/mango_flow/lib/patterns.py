@@ -31,7 +31,9 @@ def translate_mango_moustache_regex(input_string: str) -> str:
         # the default regex expression is r"[\w\-\s\.]+"
         variable_name, *regex_expression = m.group(1).split(":", 1)
         regex_expression = regex_expression[0] if regex_expression else r"[\w\.\-\s]+"
-        return f"(?P<{variable_name}>{regex_expression})"
+        # stripped versions of the variable name and regex expression.
+        # For a regex expression and a leading or trailing space/tab, use \s
+        return f"(?P<{variable_name.strip()}>{regex_expression.strip()})"
 
     return re.sub(r"{{([^({{)]+)}}", translate_moustache_single_match, input_string)
 
