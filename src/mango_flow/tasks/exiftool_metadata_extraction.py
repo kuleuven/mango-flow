@@ -137,7 +137,7 @@ def exiftool_extract_metadata_task(self, path: str, **kwargs):
     allowed_metadata = kwargs.pop("allowed_metadata", None)
     blacklist_metadata = kwargs.pop("blacklist_metadata", None)
     if allowed_metadata or blacklist_metadata:
-        metadata = filter_metadata_dict(metadata, allowed=allowed, blacklist=blacklist)
+        metadata = filter_metadata_dict(metadata, allowed=allowed_metadata, blacklist=blacklist_metadata)
         logger.info(f"Filtered metadata: {metadata}")
 
     if mode == "sidecar":

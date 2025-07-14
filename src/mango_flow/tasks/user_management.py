@@ -1,14 +1,14 @@
 import logging
 
 from celery import shared_task
-from celery.utils.log import get_task_logger
 from irods.access import iRODSAccess
 from irods.collection import iRODSCollection
 from irods.session import iRODSSession
-from .. import get_zone_operator_session, mf_apply_jinja2_template, MangoFlowTask
 
-from .util import read_yaml_from_data_object
-from ..lib.patterns import mango_flow_regex_search_path, mango_flow_regex_search
+from .. import (MangoFlowTask, get_zone_operator_session,
+                mf_apply_jinja2_template)
+from ..lib.patterns import mango_flow_regex_search_path
+from ..lib.util import read_yaml_from_data_object, get_irods_item
 
 """Two possible approaches:
 
@@ -52,7 +52,7 @@ def update_irods_users_groups(
 
 
 @shared_task(
-    name="mango_flow.tasks.users_management.read_yaml_for_user_management", bind=True
+    name="mango_flow.tasks.user_management.read_yaml_for_user_management", bind=True
 )
 def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwargs):
     """
@@ -157,7 +157,9 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
         zone=dest_path.split("/")[1]  # , client_user=client_user
     )
 
-    collection: iRODSCollection = irods_session.collections.get(dest_path)
+    irods_item = get_irods_item(
+        irods_session, dest_path
+    )
 
     parent_collection = irods_session.collections.get(
         "/".join(dest_path.split("/")[:-1])
@@ -168,7 +170,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
 
     parent_acls = irods_session.acls.get(parent_collection, report_raw_acls=True)
     current_acls = irods_session.acls.get(
-        collection,
+        irods_item,
         report_raw_acls=True,
     )
 
@@ -177,7 +179,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
             irods_session.acls.set(
                 iRODSAccess(
                     "null",
-                    collection.path,
+                    dest_path,
                     user_name=acl.user_name,
                     user_type=acl.user_type,
                     user_zone=acl.user_zone,
@@ -193,7 +195,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
         irods_session.acls.set(
             iRODSAccess(
                 parent_acl.access_name,
-                collection.path,
+                dest_path,
                 user_name=parent_acl.user_name,
                 user_type=parent_acl.user_type,
                 user_zone=parent_acl.user_zone,
@@ -213,15 +215,20 @@ def enforce_acls(
     recursive: bool = True,
     discard_existing_acls: bool = True,
     handle_missing_user_or_group: str = "raise_error",  # 'raise_error', 'ignore', 'create'
+    **kwargs
 ):
     """
     Enforce ACLs on a given path. This is especially useful for move operations
     where the parent collections typically has or get the ACLs through inheritance
     """
 
+    irods_item = get_irods_item(
+        irods_session, path
+    )
+
     if discard_existing_acls:
         current_acls = irods_session.acls.get(
-            path,
+            irods_item,
             report_raw_acls=True,
         )
 
@@ -229,7 +236,7 @@ def enforce_acls(
             irods_session.acls.set(
                 iRODSAccess(
                     "null",
-                    collection.path,
+                    path,
                     user_name=acl.user_name,
                     user_type=acl.user_type,
                     user_zone=acl.user_zone,
@@ -310,7 +317,9 @@ def user_management_enforce_acls(self, path: str, path_regex: str, **kwargs):
                 acl["user_name"], **extracted_dict
             )
             acls.append(acl)
-
+        logger.warning(
+            f"Enforcing ACLs on path {path} with regex {path_regex} and acls: {acls}"
+        )
         enforce_acls(
             self,
             irods_session,

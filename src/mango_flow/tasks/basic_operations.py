@@ -12,7 +12,11 @@ from irods.exception import CollectionDoesNotExist
 from irods.meta import AVUOperation
 from irods.session import iRODSSession
 from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_template
-from ..lib.patterns import mango_flow_regex_search_path, mango_flow_regex_search
+from ..lib.patterns import (
+    mango_flow_regex_search_path,
+    mango_flow_regex_search,
+    populate_mango_flow_regex_search_path_with_irods_items,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +95,7 @@ def extract_variables_by_regex(
             # this error should not be raised in normal situations
             raise MFBasicIngestException(missing_variables=vns.difference(rds))
     return False
+
 
 def irods_ingest_move_data_object(
     irods_session: iRODSSession, src: str, dst: str, acls: dict = {}
@@ -290,7 +295,8 @@ def test_pattern_and_jinja_transform(self, path, path_regex, dst_template, **kwa
     A task to test the path regex and jinja2 template transformation on a given irods path"
     """
     result_dict = mango_flow_regex_search_path(
-        mango_regex_pattern=path_regex, path=path, 
+        mango_regex_pattern=path_regex,
+        path=path,
     )
 
     # decorate the result with the irods object if any:
@@ -298,19 +304,12 @@ def test_pattern_and_jinja_transform(self, path, path_regex, dst_template, **kwa
     irods_session = get_zone_operator_session(
         pathlib.Path(path).parts[1], client_user=client_user
     )
-    for key, value in result_dict.items():
-        try:
-            irods_item = irods_session.data_objects.get(value["path"])
-            result_dict[key]["item"] = irods_item
-            result_dict[key]["item_type"] = "data_object"
 
-        except Exception as e:
-            try:
-                irods_item = irods_session.collections.get(value["path"])
-                result_dict[key]["item"] = irods_item
-                result_dict[key]["item_type"] = "collection"
-            except Exception as e:
-                result_dict[key]["item"] = None
+    result_dict = populate_mango_flow_regex_search_path_with_irods_items(
+        irods_session,
+        path_variables_dict=result_dict,  # type: ignore
+        jinja_template_string=dst_template,
+    )
 
     if result_dict:
         logger.info(f"Path {path} matches regex {path_regex} with result {result_dict}")

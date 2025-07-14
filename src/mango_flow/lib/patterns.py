@@ -1,5 +1,9 @@
 import pathlib
 import re
+from irods.session import iRODSSession
+from irods.data_object import iRODSDataObject
+from irods.collection import iRODSCollection
+from .util import get_irods_item
 
 # -*- coding: utf-8 -*-
 r"""
@@ -48,7 +52,7 @@ def mango_flow_regex_search(mango_regex_pattern: str, input_string: str) -> dict
         return result.groupdict()
     # if no match is found, return None
     # this is the same as returning an empty dict, but None is more explicit
-    return None
+    return {}
 
 
 def get_sub_paths_with_positions(path: str) -> dict:
@@ -109,4 +113,33 @@ def mango_flow_regex_search_path(
                     }
                     break
         return group_dict_with_paths
-    return None
+    return {}
+
+
+def populate_mango_flow_regex_search_path_with_irods_items(
+    irods_session: iRODSSession,
+    path_variables_dict: dict[str, dict],
+    jinja_template_string: str,
+) -> dict | None:
+    """
+    This function takes a dict with path variables and a jinja template string.
+    It will check if the variables are present with a property/key 'item' in the jinja template string.
+    If they are, it will fetch the corresponding iRODS item and add it to the
+    path_variables_dict under the key 'item' and 'item_type'.
+    This minimises the number of iRODS queries needed to get the items.
+    """
+
+    for key, value in path_variables_dict.items():
+        if f"{key}.item" in jinja_template_string:
+            # if the key is in the jinja template string, we can use it to get the value
+            # from the irods session
+            irods_item = get_irods_item(irods_session, value["path"])
+            if isinstance(irods_item, iRODSCollection):
+                path_variables_dict[key]["item"] = irods_item
+                path_variables_dict[key]["item_type"] = "collection"
+            elif isinstance(irods_item, iRODSDataObject):
+                path_variables_dict[key]["item"] = irods_item
+                path_variables_dict[key]["item_type"] = "data_object"
+            else:
+                path_variables_dict[key]["item"] = None
+    return path_variables_dict
