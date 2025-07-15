@@ -10,8 +10,10 @@ from irods.data_object import iRODSDataObject
 from irods.meta import AVUOperation, iRODSMeta
 from irods.session import iRODSSession
 from .. import get_zone_operator_session, MangoFlowTask
-
+from ..lib.patterns import mango_flow_regex_search, translate_mango_moustache_regex
+from ..lib.util import bulk_add_metadata
 logger = logging.getLogger(__name__)
+
 
 class MFMetaDataExtractionError(Exception):
     def __init__(self, message="Mango Flow Metadata Extraction Error", **params):
@@ -31,19 +33,18 @@ def extract_metadata_from_path(
     mapper converts the restricted metadata names into a more general form
     split_metadata is used to further split a value into a list of values
     and contains the metadata name (before mapping) and the regex to split on
-    value_mapper is a dictionary of dictionaries, where the first key is the metadata name (before mapping) 
+    value_mapper is a dictionary of dictionaries, where the first key is the metadata name (before mapping)
     and the second key is the value to be mapped via a regex. This is meant to normalize values
-    so the secondary keys are regular expressions that can map the value to a new/common value. 
+    so the secondary keys are regular expressions that can map the value to a new/common value.
     Multiple regular expressions can be used to map the source value to different destination values
 
     Note that the value_mapper and split_metadata are not to be used at the same time for now
 
     """
-    matches = re.search(path_regex, path)
+    extracted_metadata_raw = mango_flow_regex_search(path_regex, path)
 
     extracted_metadata = {}
-    if matches:
-        extracted_metadata_raw = matches.groupdict()
+    if extracted_metadata_raw:
 
         for key, value in extracted_metadata_raw.items():
             if key in value_mapper:
@@ -53,7 +54,7 @@ def extract_metadata_from_path(
                             value_regex, value_mapper[key][value_regex], value
                         )
                         if apply_first_value_mapping_only:
-                            break # the first match is used
+                            break  # the first match is used
             if key in split_metadata:
                 # logger.info(f"Splitting {key} with {split_metadata[key]}")
                 value = re.split(split_metadata[key], value)
@@ -108,48 +109,6 @@ def extract_metadata_from_marked_file_header(
     return metadata_as_dict
 
 
-def bulk_add_metadata(
-    item: iRODSDataObject | iRODSCollection,
-    metadata_items: dict,
-    unit_text: str = "analysis/other",
-    wipe_matching_unit=True,
-    as_admin=False,
-):
-    if metadata_items:
-        metadata_names = metadata_items.keys()
-        avu_operations = [
-            AVUOperation(operation="remove", avu=avu)
-            for avu in item.metadata.items()
-            # match any unit that starts with the string specified.
-            # The general wisdom is that is used in a mime like or namespace fashion seprateed with forward slashes
-            # eg 'analysis/'
-            if (avu.name in metadata_names)
-            or (wipe_matching_unit and avu.units.startswith(unit_text))
-        ]
-        for m_name, m_value in metadata_items.items():
-            if type(m_value) == list:
-                avu_operations.extend(
-                    [
-                        AVUOperation(
-                            "add",
-                            iRODSMeta(name=m_name, value=sub_value, units=unit_text),
-                        )
-                        for sub_value in m_value
-                    ]
-                )
-
-            elif type(m_value) == str:
-                avu_operations.append(
-                    AVUOperation(
-                        operation="add",
-                        avu=iRODSMeta(name=m_name, value=m_value, units=unit_text),
-                    )
-                )
-
-        if len(avu_operations):
-            item.metadata(admin=as_admin).apply_atomic_operations(*avu_operations)
-
-
 @shared_task(
     name="mango_flow.irods.extract_metadata_path", bind=True, base=MangoFlowTask
 )
@@ -194,6 +153,8 @@ def wrap_extract_metadata_from_path_multi_regex(
     matching_regexes = []
 
     for path_regex in path_regex_list:
+        # allow both moustache like syntax as well as full regex strings
+        path_regex = translate_mango_moustache_regex(path_regex)
         if re.search(path_regex, path):
             matching_regexes.append(path_regex)
             if apply_first_match_only:
@@ -227,7 +188,8 @@ def wrap_extract_metadata_from_path_multi_regex(
 )
 def wrap_extract_metadata_from_marked_file_header(self, path, **kwargs):
     path_regex = kwargs.pop("path_regex")
-    if not re.search(path_regex, path):
+    # allow both moustache as well as full python regex strings
+    if not re.search(translate_mango_moustache_regex(path_regex), path):
         return path
 
     client_user = kwargs.pop("client_user", None)

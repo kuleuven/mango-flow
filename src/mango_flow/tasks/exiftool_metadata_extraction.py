@@ -8,7 +8,7 @@ from typing import Optional
 from celery import shared_task
 from exiftool import ExifToolHelper
 from irods.session import iRODSSession
-from .basic_metadata_extraction import bulk_add_metadata
+from ..lib.util import bulk_add_metadata, filter_metadata_dict
 from .. import get_zone_operator_session
 
 logger = logging.getLogger(__name__)
@@ -32,40 +32,6 @@ def extract(path: str):
     except Exception as e:
         logger.warning(f"Exception in metadata extraction: {e}")
         return {}
-
-
-def filter_metadata_dict(
-    metadata: dict, allowed: Optional[list] = None, blacklist: Optional[list] = None
-) -> dict:
-    """
-    Filter metadata dictionary based on allowed and blacklist regexes.
-
-    :param metadata: The metadata dictionary to filter.
-    :param allowed: List of regex patterns to allow.
-    :param blacklist: List of regex patterns to exclude. blacklist takes precedence over allowed.
-    :return: Filtered metadata dictionary.
-
-    This function should go to a more general place, as it can be used in other tasks as well.
-    """
-    if not allowed and not blacklist:
-        return metadata
-
-    filtered_metadata = {}
-
-    for key, value in metadata.items():
-        if allowed and not blacklist:
-            if any(re.search(pattern, key) for pattern in allowed):
-                filtered_metadata[key] = value
-        if blacklist and not allowed:
-            if not any(re.search(pattern, key) for pattern in blacklist):
-                filtered_metadata[key] = value
-        if allowed and blacklist:
-            if any(re.search(pattern, key) for pattern in allowed) and not any(
-                re.search(pattern, key) for pattern in blacklist
-            ):
-                filtered_metadata[key] = value
-
-    return filtered_metadata
 
 
 @shared_task(name="mango_flow.tasks.exiftool_metadata_extraction.extract", bind=True)
@@ -112,12 +78,13 @@ def exiftool_extract_metadata_task(self, path: str, **kwargs):
         zone, client_user=client_user
     )
 
-    #max_size = kwargs.pop("max_size", 500)
+    # max_size = kwargs.pop("max_size", 500)
 
     metadata = None
 
     try:
         data_object = irods_session.data_objects.get(path)
+        # TODO: Add root path, as files can become too big in for example a container
         with tempfile.TemporaryDirectory() as tmpdirname:
             local_path = pathlib.Path(tmpdirname) / data_object.name
             irods_session.data_objects.get(path, str(local_path))
@@ -137,7 +104,9 @@ def exiftool_extract_metadata_task(self, path: str, **kwargs):
     allowed_metadata = kwargs.pop("allowed_metadata", None)
     blacklist_metadata = kwargs.pop("blacklist_metadata", None)
     if allowed_metadata or blacklist_metadata:
-        metadata = filter_metadata_dict(metadata, allowed=allowed_metadata, blacklist=blacklist_metadata)
+        metadata = filter_metadata_dict(
+            metadata, allowed=allowed_metadata, blacklist=blacklist_metadata
+        )
         logger.info(f"Filtered metadata: {metadata}")
 
     if mode == "sidecar":
