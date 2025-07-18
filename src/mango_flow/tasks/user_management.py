@@ -9,6 +9,8 @@ from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_templat
 from ..lib.patterns import mango_flow_regex_search_path
 from ..lib.util import read_yaml_from_data_object, get_irods_item
 
+from plugins.operator_group_manager.validation import validate_user_management
+
 """Two possible approaches:
 
 - ManGO approach chains three tasks:
@@ -76,6 +78,9 @@ def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwarg
         yaml_data = read_yaml_from_data_object(path, irods_session)
         if not yaml_data:
             raise ValueError("YAML data is empty or invalid")
+        yaml_data = validate_user_management(yaml_data)
+        if isinstance(yaml_data, str):
+            return yaml_data  # it failed validation
 
         # loop over gorups
         # flattening as long we have a tree
