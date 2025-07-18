@@ -5,8 +5,7 @@ from irods.access import iRODSAccess
 from irods.collection import iRODSCollection
 from irods.session import iRODSSession
 
-from .. import (MangoFlowTask, get_zone_operator_session,
-                mf_apply_jinja2_template)
+from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_template
 from ..lib.patterns import mango_flow_regex_search_path
 from ..lib.util import read_yaml_from_data_object, get_irods_item
 
@@ -52,7 +51,9 @@ def update_irods_users_groups(
 
 
 @shared_task(
-    name="mango_flow.tasks.user_management.read_yaml_for_user_management", bind=True
+    name="mango_flow.tasks.user_management.read_yaml_for_user_management",
+    bind=True,
+    base=MangoFlowTask,
 )
 def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwargs):
     """
@@ -101,6 +102,7 @@ def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwarg
 @shared_task(
     name="mango_flow.tasks.user_management.update_irods_users_groups_from_yaml",
     bind=True,
+    base=MangoFlowTask,
 )
 def update_irods_users_groups_from_yaml_task(
     self, task_input: dict[str : dict | str], **kwargs
@@ -157,9 +159,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
         zone=dest_path.split("/")[1]  # , client_user=client_user
     )
 
-    irods_item = get_irods_item(
-        irods_session, dest_path
-    )
+    irods_item = get_irods_item(irods_session, dest_path)
 
     parent_collection = irods_session.collections.get(
         "/".join(dest_path.split("/")[:-1])
@@ -215,16 +215,14 @@ def enforce_acls(
     recursive: bool = True,
     discard_existing_acls: bool = True,
     handle_missing_user_or_group: str = "raise_error",  # 'raise_error', 'ignore', 'create'
-    **kwargs
+    **kwargs,
 ):
     """
     Enforce ACLs on a given path. This is especially useful for move operations
     where the parent collections typically has or get the ACLs through inheritance
     """
 
-    irods_item = get_irods_item(
-        irods_session, path
-    )
+    irods_item = get_irods_item(irods_session, path)
 
     if discard_existing_acls:
         current_acls = irods_session.acls.get(
