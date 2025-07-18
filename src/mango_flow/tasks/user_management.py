@@ -188,7 +188,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
                 admin=True,
             )
         logger.info(
-            f"user_management_enforce_acls_parent: discarded existing ACLs on collection {collection.path}"
+            f"user_management_enforce_acls_parent: discarded existing ACLs on collection {dest_path}"
         )
 
     for parent_acl in parent_acls:
