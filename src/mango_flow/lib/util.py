@@ -4,6 +4,7 @@ import os
 import pathlib
 import typing
 
+
 import pydantic
 import yaml
 from irods.session import iRODSSession
@@ -124,7 +125,9 @@ def get_irods_item(
 
 
 def filter_metadata_dict(
-    metadata: dict, allowed: Optional[list] = None, blacklist: Optional[list] = None
+    metadata: dict,
+    allowed: typing.Optional[list] = None,
+    blacklist: typing.Optional[list] = None,
 ) -> dict:
     """
     Filter metadata dictionary based on allowed and blacklist regexes.
