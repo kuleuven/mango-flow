@@ -80,7 +80,7 @@ def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwarg
             raise ValueError("YAML data is empty or invalid")
         yaml_data = validate_user_management(yaml_data)
         if isinstance(yaml_data, str):
-            return yaml_data  # it failed validation
+            raise ValueError(yaml_data)  # it failed validation
 
         # loop over gorups
         # flattening as long we have a tree
