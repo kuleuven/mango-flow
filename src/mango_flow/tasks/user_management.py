@@ -76,6 +76,16 @@ def read_yaml_for_user_management_task(self, path: str, path_regex: str, **kwarg
         yaml_data = read_yaml_from_data_object(path, irods_session)
         if not yaml_data:
             raise ValueError("YAML data is empty or invalid")
+        validation_function_name = kwargs.pop("validation_function", None)
+        if validation_function_name:
+            import importlib
+
+            module_name, function_name = validation_function_name.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            validation_function = getattr(module, function_name)
+            yaml_data = validation_function(yaml_data)
+        if isinstance(yaml_data, str):
+            raise ValueError(yaml_data)  # it failed validation
 
         # loop over gorups
         # flattening as long we have a tree
@@ -188,7 +198,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
                 admin=True,
             )
         logger.info(
-            f"user_management_enforce_acls_parent: discarded existing ACLs on collection {dest_path.path}"
+            f"user_management_enforce_acls_parent: discarded existing ACLs on collection {dest_path}"
         )
 
     for parent_acl in parent_acls:
