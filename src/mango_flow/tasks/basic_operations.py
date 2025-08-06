@@ -242,6 +242,7 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     @todo: split the destination templates into collection path and object naming
     """
     path_regex = kwargs.pop("path_regex")
+    
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]
     # @todo re-add variable checking by scanning also raw regular expressions for group names

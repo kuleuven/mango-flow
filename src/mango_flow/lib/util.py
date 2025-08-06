@@ -96,7 +96,7 @@ def load_yaml_config(
             if raise_error:
                 raise RuntimeError(f"Failed to validate configuration: {e}")
             else:
-                logger.warning(f"Warning: Failed to validate  configuration: {e}")
+                logger.warning(f"Warning: Failed to validate configuration: {e}")
 
     # if we are here
     if raise_error:
@@ -124,7 +124,7 @@ def get_irods_item(
 
 
 def filter_metadata_dict(
-    metadata: dict, allowed: Optional[list] = None, blacklist: Optional[list] = None
+    metadata: dict, allowed: typing.Optional[list] = None, blacklist: typing.Optional[list] = None
 ) -> dict:
     """
     Filter metadata dictionary based on allowed and blacklist regexes.
