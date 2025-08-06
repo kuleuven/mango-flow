@@ -7,6 +7,7 @@ MANGO_FLOW_MODULES = []  # put it in the global scope
 if mf_import_config := load_yaml_config(
     from_env_var="MANGO_FLOW_MODULES_CONFIG",
     from_path="config/mango_flow_modules.yaml",
+    raise_error=False,
     pd_model=MFTasksYamlImportConfig,  # type: ignore
 ):
     MANGO_FLOW_MODULES = mf_import_config
