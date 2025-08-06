@@ -2,14 +2,17 @@
 import logging
 import os
 import pathlib
+import re
 import typing
 
 import pydantic
 import yaml
-from irods.session import iRODSSession
-from irods.data_object import iRODSDataObject
 from irods.collection import iRODSCollection
+from irods.data_object import iRODSDataObject
 from irods.meta import AVUOperation, iRODSMeta
+from irods.session import iRODSSession
+
+from .. import get_zone_operator_session
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +127,9 @@ def get_irods_item(
 
 
 def filter_metadata_dict(
-    metadata: dict, allowed: typing.Optional[list] = None, blacklist: typing.Optional[list] = None
+    metadata: dict,
+    allowed: typing.Optional[list] = [],
+    blacklist: typing.Optional[list] = [],
 ) -> dict:
     """
     Filter metadata dictionary based on allowed and blacklist regexes.
@@ -133,28 +138,30 @@ def filter_metadata_dict(
     :param allowed: List of regex patterns to allow.
     :param blacklist: List of regex patterns to exclude. blacklist takes precedence over allowed.
     :return: Filtered metadata dictionary.
-
-    This function should go to a more general place, as it can be used in other tasks as well.
     """
+
+    # if there are no criteria, treat it as allowed
     if not allowed and not blacklist:
         return metadata
 
     filtered_metadata = {}
 
-    for key, value in metadata.items():
-        if allowed and not blacklist:
-            if any(re.search(pattern, key) for pattern in allowed):
-                filtered_metadata[key] = value
-        if blacklist and not allowed:
-            if not any(re.search(pattern, key) for pattern in blacklist):
-                filtered_metadata[key] = value
-        if allowed and blacklist:
-            if any(re.search(pattern, key) for pattern in allowed) and not any(
-                re.search(pattern, key) for pattern in blacklist
-            ):
-                filtered_metadata[key] = value
+    def is_allowed(key):
+        return any(re.search(pattern, key) for pattern in allowed)
 
-    return filtered_metadata
+    def not_blacklisted(key):
+        return not any(re.search(pattern, key) for pattern in blacklist)
+
+    filtered_metadata = (
+        {key: value for key, value in filtered_metadata.items() if is_allowed(key)}
+        if allowed
+        else metadata
+    )
+    return (
+        {key: value for key, value in filtered_metadata.items() if not_blacklisted(key)}
+        if blacklist
+        else filtered_metadata
+    )
 
 
 def bulk_add_metadata(
@@ -198,3 +205,13 @@ def bulk_add_metadata(
         if num_operations := len(avu_operations):
             item.metadata(admin=as_admin).apply_atomic_operations(*avu_operations)
             return num_operations
+
+
+def get_zone_operator_session_zone_via_path(
+    path: str, client_user: str | None = None
+) -> iRODSSession | str:
+    zone = pathlib.Path(path).parts[1]
+    try:
+        return get_zone_operator_session(zone, client_user=client_user)
+    except Exception as e:
+        return str(e)

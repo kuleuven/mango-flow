@@ -44,7 +44,7 @@ def translate_mango_moustache_regex(input_string: str) -> str:
 
 def mango_flow_regex_search(mango_regex_pattern: str, input_string: str) -> dict | None:
     """
-    The mango_regex_pattern can be full python regex"patterns or te simpler moustache syntax.
+    The mango_regex_pattern can be full python regex patterns or te simpler moustache syntax.
     If the moustache syntax is used, it will be transformed internally into a full regex pattern.
     """
     regex_pattern = translate_mango_moustache_regex(mango_regex_pattern)
