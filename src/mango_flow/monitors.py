@@ -12,6 +12,139 @@ import hashlib
 
 from . import MangoFlowTask
 
+from irods.session import iRODSSession
+from irods.data_object import iRODSDataObject
+from irods.collection import iRODSCollection
+from irods.meta import iRODSMeta
+
+from irods.query import Query
+from irods.column import Criterion, Like
+from irods.models import Collection, DataObject, DataObjectMeta, CollectionMeta
+
+
+def search_metadata_collection(
+    irods_session: iRODSSession, subtree: str, metadata: dict
+) -> list:
+    filters = [Like(Collection.name, f"{subtree}%")]
+
+    print(f"search_metadata_collection: {subtree=}, {metadata=}")
+
+    for metadata_name, metadata_value in metadata.items():
+
+        filters += [Criterion("=", CollectionMeta.name, metadata_name)]
+        if not isinstance(metadata_value, bool):
+            comparison = "like" if metadata_value.find("%") != -1 else "="
+            filters += [Criterion(comparison, CollectionMeta.value, metadata_value)]
+
+    query_results = irods_session.query(Collection.name).filter(*filters)
+
+    return [r[Collection.name] for r in query_results]
+
+
+def search_metadata_data_object(
+    irods_session: iRODSSession,
+    subtree: str,
+    metadata: dict = {},
+    data_object_name_pattern: str = "",
+) -> list:
+    filters = [Like(Collection.name, f"{subtree}%")]
+
+    if data_object_name_pattern:
+        filters += [Like(DataObject.name, data_object_name_pattern)]
+    print(
+        f"search_metadata_collection: {subtree=}, {metadata=}, {data_object_name_pattern=}"
+    )
+
+    for metadata_name, metadata_value in metadata.items():
+
+        filters += [Criterion("=", CollectionMeta.name, metadata_name)]
+        if not isinstance(metadata_value, bool):
+            comparison = "like" if metadata_value.find("%") != -1 else "="
+            filters += [Criterion(comparison, CollectionMeta.value, metadata_value)]
+
+    query_results = irods_session.query(Collection.name, DataObject.name).filter(
+        *filters
+    )
+
+    return [f"{r[Collection.name]}/{r[DataObject.name]}" for r in query_results]
+
+
+@shared_task(
+    name="mango_flow.monitor.irods.collections.metadata", bind=True, base=MangoFlowTask
+)
+def monitor_subtree_collections_via_metadata(
+    self, subtree: str, metadata: dict, wf_action: str, **kwargs
+):
+    path = pathlib.Path(subtree)
+    zone = path.parts[1]
+    client_user = kwargs.pop("client_user", None)
+    try:
+        irods_session = get_zone_operator_session(zone, client_user=client_user)
+    except Exception as e:
+        return str(e)
+
+    collection_paths = search_metadata_collection(
+        irods_session=irods_session, subtree=subtree, metadata=metadata
+    )
+
+    path_input_mode = kwargs.pop("path_input_mode", "single")
+    app: Celery = current_app
+    if path_input_mode == "single":
+        for collection in collection_paths:
+            task: signature = app.signature(
+                wf_action, args=[collection], kwargs=kwargs["kwargs"]
+            )
+            task.apply_async()
+
+    if path_input_mode == "multi" and collection_paths:
+        # args = do_paths
+        task: signature = app.signature(
+            wf_action, args=[collection_paths], kwargs=kwargs["kwargs"]
+        )
+        task.apply_async()
+
+
+@shared_task(
+    name="mango_flow.monitor.irods.data_objects.metadata", bind=True, base=MangoFlowTask
+)
+def monitor_subtree_data_objects_via_metadata(
+    self,
+    subtree: str,
+    metadata: dict,
+    data_object_name_pattern: str,
+    wf_action: str,
+    **kwargs,
+):
+    path = pathlib.Path(subtree)
+    zone = path.parts[1]
+    client_user = kwargs.pop("client_user", None)
+    try:
+        irods_session = get_zone_operator_session(zone, client_user=client_user)
+    except Exception as e:
+        return str(e)
+
+    data_object_paths = search_metadata_data_object(
+        irods_session=irods_session,
+        subtree=subtree,
+        metadata=metadata,
+        data_object_name_pattern=data_object_name_pattern,
+    )
+
+    path_input_mode = kwargs.pop("path_input_mode", "single")
+    app: Celery = current_app
+    if path_input_mode == "single":
+        for data_object in data_object_paths:
+            task: signature = app.signature(
+                wf_action, args=[data_object], kwargs=kwargs["kwargs"]
+            )
+            task.apply_async()
+
+    if path_input_mode == "multi" and data_object_paths:
+        task = app.signature(
+            wf_action, args=[data_object_paths], kwargs=kwargs["kwargs"]
+        )
+        task.apply_async()
+
 
 @shared_task(name="mango_flow.monitor.irods.subtree", bind=True, base=MangoFlowTask)
 def monitor_subtree(
@@ -36,7 +169,7 @@ def monitor_subtree(
             previous_run_marker_name
         )
         previous_run_marker = datetime.datetime.fromisoformat(previous_run_marker.value)
-    except:
+    except Exception as e:
         previous_run_marker = None
     admin = False if client_user else True
     subtree_as_collection.metadata(admin=admin).set(

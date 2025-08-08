@@ -1,13 +1,15 @@
-# This app should be launched from the Mango Portal project root
+# -*- coding: utf-8 -*-
+# This app should be launched from the Mango Portal project root, it contains the ManGO Flow Celery app
 
-from celery import Celery, shared_task, xmap, xstarmap, chord, group, chunks
-from celery.result import GroupResult
-from celery.canvas import chain, signature
-from importlib import import_module
-from .bootstrap_config import get_beat_configs_from_global_file
-from .mango_flow_workers_config import MANGO_FLOW_MODULES
 import logging
 import os
+from importlib import import_module
+
+from celery import Celery, chord, shared_task
+from celery.canvas import chain, signature
+
+from .bootstrap_config import get_beat_configs_from_global_file
+from .mango_flow_workers_config import MANGO_FLOW_MODULES
 
 
 class MFException(Exception):
@@ -15,13 +17,16 @@ class MFException(Exception):
         super().__init__(f"{message} : {params}")
 
 
+logger = logging.getLogger(__name__)
+
 broker = os.environ.get("MANGO_FLOW_BROKER", "redis://localhost:6379/0")
 backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
 
-mf_logger = logging.getLogger(__name__)
-
 for task_group in MANGO_FLOW_MODULES:
-    module = import_module(task_group["module"])
+    # @todo: read the default package name from elsewhere, as it may be an installed package
+    module = import_module(
+        task_group["module"], package=task_group.get("package", "plugins.mango_flow")
+    )
 
 
 @shared_task(name="mango_flow.heartbeat")
@@ -37,16 +42,21 @@ def mango_flow_schedule_heartbeat() -> str:
 @shared_task(name="mango_flow.irods.chain.path", bind=True)
 def mango_flow_chain_path_tasks(self, path: str, tasks: list):
     """"""
-    start_task = tasks.pop(0)
+    initial_task_dict = tasks.pop(0)
     # the entrypoint of the chain includes the (initial) path as the first argument
-    task_chain = signature(
-        start_task["name"], args=[path], kwargs=start_task["parameters"]
+    initial_task = signature(
+        initial_task_dict["name"], args=[path], kwargs=initial_task_dict["parameters"]
     )
-    for task in tasks:
-        # the rest are signature partials, the output of the first task will be injected as the first arg in the next
-        task_chain.link(signature(task["name"], kwargs=task["parameters"]))
+    task_chain = chain(
+        initial_task,
+        *[signature(task["name"], kwargs=task["parameters"]) for task in tasks],
+    )
 
-    task_chain.apply_async()
+    # for task in tasks:
+    #     # the rest are signature partials, the output of the first task will be injected as the first arg in the next
+    #    remainig_tasks.addsignature(task["name"], kwargs=task["parameters"]))
+
+    return task_chain.apply_async()
 
 
 @shared_task(name="mango_flow.irods.chord.chain.path", bind=True)
@@ -82,7 +92,19 @@ def mango_flow_chord_chain(
         )
 
     result = chord(chord_header_tasks, aggregate_signature).apply_async()
-    return f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+    logger.info(
+        f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+    )
+    return result
+
+
+@shared_task(name="mango_flow.tasks.noop", bind=True)
+def mango_flow_noop(self, *args, **kwargs):
+    """
+    No operation task debugging.
+    """
+    logger.info(f"mango_flow_noop: {args=}, {kwargs=}")
+    return None
 
 
 beat_schedule = {
@@ -109,7 +131,7 @@ mango_flow = Celery(
     broker_connection_retry_on_startup=True,
     broker_connection_max_retries=None,
     broker_channel_error_retry=True,
-    worker_concurrency=8,
+    worker_concurrency=2,
     beat_max_loop_interval=10,  # seconds
     beat_schedule=beat_schedule,
 )

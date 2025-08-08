@@ -12,9 +12,15 @@ def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:
         return False
     doc_list = [doc for doc in doc_list_iterator]
     mf_zone_config = {doc["zone"]: doc for doc in doc_list}
+    # remove the zone entry itself, it has no use anymore and would sit in the way for further processing
     for zone in mf_zone_config.keys():
         mf_zone_config[zone].pop("zone")
     return mf_zone_config
+
+
+def add_parameters_if_empty(task):
+    if "parameters" not in task:
+        task["parameters"] = {}
 
 
 def parse_beat_flow_item(item_config: dict) -> dict:
@@ -37,11 +43,17 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         beatconfig["schedule"] = eval(beatconfig["schedule"])
 
     beatconfig["kwargs"] = {
-        "subtree": item_config["match"]["subtree"],
+        "subtree": item_config["match"].pop("subtree"),
         "client_user": client_user,
         "path_input_mode": path_input_mode,
         "monitoring_offset": monitoring_offset,
     }
+
+    # process parameters for optional metadata monitoring
+    beatconfig["kwargs"]["metadata"] = item_config["match"].get("metadata", {})
+    beatconfig["kwargs"]["data_object_name_pattern"] = item_config["match"].get(
+        "data_object_name_pattern", ''
+    )
 
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
         "mode"
@@ -57,6 +69,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     ) == "chain":
         # propagate/inject client_user if needed
         for task in flow["action"]:
+            add_parameters_if_empty(task)
             if client_user and "client_user" not in task["parameters"]:
                 task["parameters"]["client_user"] = client_user
         # now call the task chain
@@ -71,9 +84,11 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     ) == "chord":
         # propagate/inject client_user if needed
         for task in flow["header_actions"]:
+            add_parameters_if_empty(task)
             if client_user and "client_user" not in task["parameters"]:
                 task["parameters"]["client_user"] = client_user
         for task in flow["aggregate_actions"]:
+            add_parameters_if_empty(task)
             if client_user and "client_user" not in task["parameters"]:
                 task["parameters"]["client_user"] = client_user
         # now call the task chain

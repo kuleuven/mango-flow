@@ -1,19 +1,24 @@
-import re, pathlib, jinja2
 import datetime
+import logging
+import pathlib
+import re
+import time
 import zoneinfo
 
-from irods.session import iRODSSession
+from celery import shared_task
 from irods.access import iRODSAccess
 from irods.data_object import iRODSDataObject
-from irods.meta import iRODSMeta, AVUOperation
 from irods.exception import CollectionDoesNotExist
-from celery import shared_task, Task
-from celery import signature
-from plugins.operator import get_zone_operator_session
-import time
-from plugins.mango_flow import MangoFlowTask
+from irods.meta import AVUOperation
+from irods.session import iRODSSession
+from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_template
+from ..lib.patterns import (
+    mango_flow_regex_search_path,
+    mango_flow_regex_search,
+    populate_mango_flow_regex_search_path_with_irods_items,
+)
 
-# import asyncio # not yet
+logger = logging.getLogger(__name__)
 
 
 class MFBasicIngestException(Exception):
@@ -49,8 +54,8 @@ def parse_input_path_element_regex(path_element: str):
 
 
 def parse_input_path_regex(in_path: str | pathlib.PurePath) -> dict:
-    # if the input is a string, normalize it to a PurePath
-    if type(in_path) == str:
+    # if the input is a string, convert it to a PurePath
+    if isinstance(in_path, str):
         in_path = pathlib.PurePath(in_path)
 
     path_regex_list = []
@@ -92,11 +97,6 @@ def extract_variables_by_regex(
     return False
 
 
-def construct_destination_path(dest_template: str, **variables):
-    # Add caching later
-    return jinja2.Template(dest_template).render(**variables)
-
-
 def irods_ingest_move_data_object(
     irods_session: iRODSSession, src: str, dst: str, acls: dict = {}
 ):
@@ -108,6 +108,20 @@ def irods_ingest_move_data_object(
 
     try:
         irods_session.data_objects.move(src, dst)
+        if acls:
+            for user, access_type in acls.items():
+                irods_session.acls.set(iRODSAccess(access_type, dst, user))
+
+    except Exception as e:
+        raise MFBasicIngestException(exception=e, src=src, dest=dst)
+
+
+def irods_ingest_move_collection(
+    irods_session: iRODSSession, src: str, dst: str, acls: dict = {}
+):
+    """"""
+    try:
+        irods_session.collections.move(src, dst)
         if acls:
             for user, access_type in acls.items():
                 irods_session.acls.set(iRODSAccess(access_type, dst, user))
@@ -150,7 +164,7 @@ def irods_ingest_copy_data_object_local(
             dst_data_object = irods_session.data_objects.get(dst)
             all_metadata_src = src_data_object.metadata.items()
             md_operations = []
-            metadata_is_list = True if type(metadata) == list else False
+            metadata_is_list = True if isinstance(metadata, list) else False
             for avu in all_metadata_src:
                 if metadata == "all" or (metadata_is_list and avu.name in metadata):
                     md_operations.append(AVUOperation(operation="add", avu=avu))
@@ -177,7 +191,7 @@ def data_object_read_in_chunks(data_object: iRODSDataObject, read_buffer_size):
             file_chunk = f.read(read_bytes)
             bytes_read = len(file_chunk)
             position += bytes_read
-            print(
+            logger.info(
                 f"{data_object.name}: sending {position} bytes after {time.perf_counter()-start}"
             )
             yield file_chunk
@@ -219,18 +233,6 @@ def irods_ingest_copy_data_object_streaming(
     return dst
 
 
-def write_to_local_tar_archive(
-    src_irods_session: iRODSSession,
-    dst_irods_sesion: iRODSSession,
-    src_list: list[str],
-    dst: str,
-    dst_mode="a",
-    skip_path_elements=3,  # default is typically /<zone>/<home>/<project>
-):
-    """see bulk operations as well as copy in mango_flow, move to general lib instead?"""
-    pass
-
-
 @shared_task(
     name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask
 )
@@ -240,6 +242,7 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     @todo: split the destination templates into collection path and object naming
     """
     path_regex = kwargs.pop("path_regex")
+    
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]
     # @todo re-add variable checking by scanning also raw regular expressions for group names
@@ -247,7 +250,7 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     if result := re.search(processed_regex, path):
         result_dict = result.groupdict()
         dst_template = kwargs.pop("dst_template")
-        dst_path = construct_destination_path(dst_template, **result_dict)
+        dst_path = mf_apply_jinja2_template(dst_template, **result_dict)
         client_user = kwargs.pop("client_user", None)
         zone = pathlib.Path(path).parts[1]
         irods_session = get_zone_operator_session(zone, client_user=client_user)
@@ -284,6 +287,48 @@ def wrap_test_offset(self, path, client_user):
 
 
 @shared_task(
+    name="mango_flow.irods.test_pattern_and_jinja_transform",
+    bind=True,
+    base=MangoFlowTask,
+)
+def test_pattern_and_jinja_transform(self, path, path_regex, dst_template, **kwargs):
+    """
+    A task to test the path regex and jinja2 template transformation on a given irods path"
+    """
+    result_dict = mango_flow_regex_search_path(
+        mango_regex_pattern=path_regex,
+        path=path,
+    )
+
+    # decorate the result with the irods object if any:
+    client_user = kwargs.pop("client_user", None)
+    irods_session = get_zone_operator_session(
+        pathlib.Path(path).parts[1], client_user=client_user
+    )
+
+    result_dict = populate_mango_flow_regex_search_path_with_irods_items(
+        irods_session,
+        path_variables_dict=result_dict,  # type: ignore
+        jinja_template_string=dst_template,
+    )
+
+    if result_dict:
+        logger.info(f"Path {path} matches regex {path_regex} with result {result_dict}")
+
+        jinja2_result = mf_apply_jinja2_template(dst_template, **result_dict)
+        logger.info(
+            f"Destination path for {path} is {jinja2_result} using template {dst_template}"
+        )
+        return jinja2_result
+    else:
+        logger.error(
+            f"Path {path} does not match regex {path_regex}, no transformation applied"
+        )
+        # raise MFBasicIngestException(no_match_pattern=path, pattern=path_regex)
+        return path
+
+
+@shared_task(
     name="mango_flow.irods.ingest_copy_data_object", bind=True, base=MangoFlowTask
 )
 def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
@@ -296,7 +341,7 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     if result := re.search(processed_regex, path):
         result_dict = result.groupdict()
         dst_template = kwargs.pop("dst_template")
-        dst_path = construct_destination_path(dst_template, **result_dict)
+        dst_path = mf_apply_jinja2_template(dst_template, **result_dict)
         client_user = kwargs.pop("client_user", None)
         dst_client_user = kwargs.pop("dst_client_user", None)
 
@@ -333,3 +378,38 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     else:
         # raise an error in case of no match to break any further processing in chains
         raise (MFBasicIngestException(no_match_copy_do=path))
+
+
+@shared_task(
+    name="mango_flow.irods.ingest_move_collection", bind=True, base=MangoFlowTask
+)
+def wrap_irods_move_collection(self, path, **kwargs):
+    """"""
+    """
+    @Important! Destination template must include the object name, the collections must exist already
+    @todo: split the destination templates into collection path and object naming
+    """
+    path_regex = kwargs.pop("path_regex")
+
+    processed_regex = parse_input_path_regex(path_regex)["regex"]
+    # @todo re-add variable checking by scanning also raw regular expressions for group names
+    # possibly identifying the groups that are marked optional for flexibility
+    if result := re.search(processed_regex, path):
+        result_dict = result.groupdict()
+        dst_template = kwargs.pop("dst_template")
+        dst_path = mf_apply_jinja2_template(dst_template, **result_dict)
+        client_user = kwargs.pop("client_user", None)
+        zone = pathlib.Path(path).parts[1]
+        irods_session = get_zone_operator_session(zone, client_user=client_user)
+        irods_ingest_move_collection(
+            irods_session=irods_session,
+            src=path,
+            dst=dst_path,
+            acls=kwargs.get("acls", {}),
+        )
+
+        return dst_path
+
+    else:
+        # raise an error in case of no match to break any further processing in chains
+        raise (MFBasicIngestException(no_match_move_do=path))

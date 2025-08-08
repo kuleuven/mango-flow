@@ -3,7 +3,7 @@ from irods.session import iRODSSession
 from irods.exception import DataObjectDoesNotExist
 import json
 import pathlib
-from plugins.operator import get_zone_operator_session
+from .. import get_zone_operator_session
 
 # @shared_task(name="mango_flow.irods.report.path.results.json", bind=True)
 # def aggregate_path_results_json(
