@@ -1,11 +1,12 @@
-from datetime import datetime
 import os
+from datetime import datetime
 
-from irods import __version__ as prc_version
 from irods.column import Criterion, Like
 from irods.models import Collection, DataObject, DataObjectMeta
 from irods.query import Query
 from irods.session import iRODSSession
+
+MYSQL_IRODS_QUERY_LIMIT = os.getenv("MYSQL_IRODS_QUERY_LIMIT", 20000)
 
 MYSQL_IRODS_QUERY_LIMIT = os.getenv("MYSQL_IRODS_QUERY_LIMIT", 20000)
 
@@ -22,7 +23,7 @@ def get_modified_data_object_paths(
     The value "any" will be added later as it requires iRODS >=4.3.2 and PRC >=2.0.2 to be run efficiently
     """
 
-    objects = [Collection.name,DataObject.name]
+    objects = [Collection.name, DataObject.name]
 
     filters = []
     # only data objects, also avoid the duplicates in the result
@@ -36,7 +37,7 @@ def get_modified_data_object_paths(
 
     query = Query(session, *objects).filter(*filters).limit(MYSQL_IRODS_QUERY_LIMIT)
     try:
-        results= []
+        results = []
         result = query.execute()
         for r in result:
             results.append(f"{r[Collection.name]}/{r[DataObject.name]}")
@@ -44,5 +45,12 @@ def get_modified_data_object_paths(
         results = []
     return results
 
-def search_items_via_metadata(irods_session: iRODSSession, subtree_path = None, collection = None, data_object = None, metadata: list = []) -> list: 
+
+def search_items_via_metadata(
+    irods_session: iRODSSession,
+    subtree_path=None,
+    collection=None,
+    data_object=None,
+    metadata: list = [],
+) -> list:
     pass
