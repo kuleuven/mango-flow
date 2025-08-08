@@ -71,7 +71,6 @@ def get_changed_data_objects_in_collection_path(
     path: str,
     since: datetime.datetime,
     subtree_search: bool = True,
-    client_user: str = None,
 ) -> list:
     """"""
     alias = "objectsWithMetadataAndChangesSubtree"
@@ -91,13 +90,11 @@ def get_changed_data_objects_via_metadata_in_collection_path(
     path: str,
     since: datetime.datetime,
     subtree_search: bool = True,
-    client_user: str = None,
 ) -> list:
     """"""
     alias = "objectsWithChangedMetadataSubtree"
     path_expression = f"{path}%" if subtree_search else f"{path}"
     since_expression = f"{int(since.timestamp()):011d}"
-    and_where_expression = ''
     print((alias, path_expression, since_expression))
     sq_object = MangoSpecificQuery(admin_irods_session, alias=alias, args=[path_expression, since_expression], max_sql_rows=1000000)
     try:
@@ -111,14 +108,11 @@ def get_changed_data_objects_via_modified_ts_in_collection_path(
     path: str,
     since: datetime.datetime,
     subtree_search: bool = True,
-    client_user: str = None,
 ) -> list:
     """"""
     alias = "objectsViaModifiedTsSubtree"
     path_expression = f"{path}%" if subtree_search else f"{path}"
     since_expression = f"{int(since.timestamp()):011d}"
-    and_where_expression = ''
-    print((alias, path_expression, since_expression))
     sq_object= MangoSpecificQuery(admin_irods_session, alias=alias, args=[path_expression, since_expression], max_sql_rows=1000000)
     try:
         results = [f"{row_[0]}/{row_[1]} ({row_[2]})" for row_ in sq_object]
