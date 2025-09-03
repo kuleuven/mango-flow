@@ -148,12 +148,12 @@ def monitor_subtree_data_objects_via_metadata(
 
 @shared_task(name="mango_flow.monitor.irods.subtree", bind=True, base=MangoFlowTask)
 def monitor_subtree(
-    self, subtree: str, wf_action: str, monitoring_offset: int,  *args, **kwargs
+    self, subtree: str, wf_action: str, monitoring_offset: int, *args, **kwargs
 ):
     path = pathlib.Path(subtree)
     zone = path.parts[1]
     client_user = kwargs.pop("client_user", None)
-    item_type = kwargs.pop('item_type', 'data_object')
+    item_type = kwargs.pop("item_type", "data_object")
     monitoring_offset = max(int(monitoring_offset), 0)
     path_input_mode = kwargs.pop("path_input_mode", "single")
     try:
@@ -187,15 +187,14 @@ def monitor_subtree(
         else None
     )
 
-
-    if item_type == 'data_object':
+    if item_type == "data_object":
         item_paths = get_modified_data_object_paths(
             irods_session,
             subtree=subtree,
             modified_mode="data_object",
             modified_since=modified_since,
         )
-    elif item_type == 'collection':
+    elif item_type == "collection":
         item_paths = get_modified_collection_paths(
             irods_session,
             subtree=subtree,
