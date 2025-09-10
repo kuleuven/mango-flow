@@ -242,7 +242,6 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     @todo: split the destination templates into collection path and object naming
     """
     path_regex = kwargs.pop("path_regex")
-    
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]
     # @todo re-add variable checking by scanning also raw regular expressions for group names
@@ -384,31 +383,47 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     name="mango_flow.irods.ingest_move_collection", bind=True, base=MangoFlowTask
 )
 def wrap_irods_move_collection(self, path, **kwargs):
-    """"""
-    """
-    @Important! Destination template must include the object name, the collections must exist already
-    @todo: split the destination templates into collection path and object naming
-    """
+    """ """
     path_regex = kwargs.pop("path_regex")
 
     processed_regex = parse_input_path_regex(path_regex)["regex"]
-    # @todo re-add variable checking by scanning also raw regular expressions for group names
-    # possibly identifying the groups that are marked optional for flexibility
+
     if result := re.search(processed_regex, path):
         result_dict = result.groupdict()
-        dst_template = kwargs.pop("dst_template")
-        dst_path = mf_apply_jinja2_template(dst_template, **result_dict)
+        dst_template = kwargs.pop(
+            "dst_template"
+        )  # @Todo rename to dest_template or even destination_template, bc break for existing configs
+        dest_path = mf_apply_jinja2_template(dst_template, **result_dict)
+        dest_parent_path = "/".join(dest_path.split("/")[:-1])
         client_user = kwargs.pop("client_user", None)
         zone = pathlib.Path(path).parts[1]
         irods_session = get_zone_operator_session(zone, client_user=client_user)
+
+        dest_parent_must_exist = kwargs.pop("dest_parent_must_exist", False)
+        if dest_parent_must_exist:
+            try:
+                irods_session.collections.get(dest_parent_path)
+            except Exception as e:
+                raise ValueError(
+                    f"Parent path does not exist: {dest_parent_path}"
+                ) from e
+
+        else:
+            try:
+                irods_session.collections.create(dest_parent_path)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to create destination collection parent: {dest_parent_path}"
+                ) from e
+
         irods_ingest_move_collection(
             irods_session=irods_session,
             src=path,
-            dst=dst_path,
+            dst=dest_path,
             acls=kwargs.get("acls", {}),
         )
 
-        return dst_path
+        return dest_path
 
     else:
         # raise an error in case of no match to break any further processing in chains
