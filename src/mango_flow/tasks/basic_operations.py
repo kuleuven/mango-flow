@@ -15,7 +15,7 @@ from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_templat
 from ..lib.patterns import (
     mango_flow_regex_search_path,
     mango_flow_regex_search,
-    populate_mango_flow_regex_search_path_with_irods_items,
+    populate_path_variables_dict_with_irods_items,
 )
 
 logger = logging.getLogger(__name__)
@@ -305,7 +305,7 @@ def test_pattern_and_jinja_transform(self, path, path_regex, dst_template, **kwa
         pathlib.Path(path).parts[1], client_user=client_user
     )
 
-    result_dict = populate_mango_flow_regex_search_path_with_irods_items(
+    result_dict = populate_path_variables_dict_with_irods_items(
         irods_session,
         path_variables_dict=result_dict,  # type: ignore
         jinja_template_string=dst_template,
@@ -386,19 +386,33 @@ def wrap_irods_move_collection(self, path, **kwargs):
     """ """
     path_regex = kwargs.pop("path_regex")
 
-    processed_regex = parse_input_path_regex(path_regex)["regex"]
+    result_dict = mango_flow_regex_search_path(
+        mango_regex_pattern=path_regex,
+        path=path,
+    )
 
-    if result := re.search(processed_regex, path):
-        result_dict = result.groupdict()
+    if result_dict:
+
         dst_template = kwargs.pop(
             "dst_template"
         )  # @Todo rename to dest_template or even destination_template, bc break for existing configs
-        dest_path = mf_apply_jinja2_template(dst_template, **result_dict)
-        dest_parent_path = "/".join(dest_path.split("/")[:-1])
+        # dest_path = mf_apply_jinja2_template(dst_template, **result_dict)
         client_user = kwargs.pop("client_user", None)
         zone = pathlib.Path(path).parts[1]
         irods_session = get_zone_operator_session(zone, client_user=client_user)
+        result_dict = populate_path_variables_dict_with_irods_items(
+            irods_session,
+            path_variables_dict=result_dict,  # type: ignore
+            jinja_template_string=dst_template,
+        )
 
+        logger.info(f"Path {path} matches regex {path_regex} with result {result_dict}")
+
+        dest_path = mf_apply_jinja2_template(dst_template, **result_dict)
+        logger.info(
+            f"Destination path for {path} is {dest_pah} using template {dst_template}"
+        )
+        dest_parent_path = "/".join(dest_path.split("/")[:-1])
         dest_parent_must_exist = kwargs.pop("dest_parent_must_exist", False)
         if dest_parent_must_exist:
             try:
