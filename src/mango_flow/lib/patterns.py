@@ -3,7 +3,7 @@ import re
 from irods.session import iRODSSession
 from irods.data_object import iRODSDataObject
 from irods.collection import iRODSCollection
-from .util import get_irods_item
+from ..lib.util import get_irods_item
 
 # -*- coding: utf-8 -*-
 r"""

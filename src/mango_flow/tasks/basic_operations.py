@@ -14,7 +14,7 @@ from irods.session import iRODSSession
 from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_template
 from ..lib.patterns import (
     mango_flow_regex_search_path,
-    mango_flow_regex_search,
+    # mango_flow_regex_search,
     populate_path_variables_dict_with_irods_items,
 )
 
@@ -28,6 +28,7 @@ class MFBasicIngestException(Exception):
 
 def parse_input_path_element_regex(path_element: str):
     """
+    @deprecated
     search the path element for a variable and its surroundings
     (prefix)(variable expression)(suffix)
     where variable expression is a simplified format of a regular expression between double curly braces:
@@ -38,8 +39,10 @@ def parse_input_path_element_regex(path_element: str):
     the allowed characters for {{variable_name}} is r"\w" or r"[a-zA-Z0-9_]", ie python variable name restrictions
     By default the <regular expression> is simply r".+"
 
-    (prefix) and (suffix) are typically strings, but can also be regular expresions, but these are not catched in the output result
-    Be sure to escape special characters . ^ $ * + ? { } [ ] \ | ( ) if they are not meant to be part of the regex
+    (prefix) and (suffix) are typically strings, but can also be regular expresions,
+    but these are not catched in the output result
+    Be sure to escape special characters . ^ $ * + ? { } [ ] \ | ( )
+    if they are not meant to be part of the regex
     """
 
     searcher = re.compile(
@@ -54,6 +57,7 @@ def parse_input_path_element_regex(path_element: str):
 
 
 def parse_input_path_regex(in_path: str | pathlib.PurePath) -> dict:
+    """@deprecated"""
     # if the input is a string, convert it to a PurePath
     if isinstance(in_path, str):
         in_path = pathlib.PurePath(in_path)
@@ -183,16 +187,16 @@ def data_object_read_in_chunks(data_object: iRODSDataObject, read_buffer_size):
     with data_object.open("r") as f:
         position = 0
         start = time.perf_counter()
-        while position < data_object.size:
+        while position < data_object.size:  # type: ignore
             read_bytes = min(
                 read_buffer_size,
-                data_object.size - position,
+                data_object.size - position,  # type: ignore
             )
             file_chunk = f.read(read_bytes)
             bytes_read = len(file_chunk)
             position += bytes_read
             logger.info(
-                f"{data_object.name}: sending {position} bytes after {time.perf_counter()-start}"
+                f"{data_object.name}: sending {position} bytes after {time.perf_counter()-start}"  # type: ignore
             )
             yield file_chunk
 
@@ -215,11 +219,11 @@ def irods_ingest_copy_data_object_streaming(
 
     with dst_data_object.open("w", finalize_on_close=True) as f_dst:
         for buffer_read in data_object_read_in_chunks(src_data_object, buffer_size):
-            res = f_dst.write(buffer_read)
+            f_dst.write(buffer_read)
     if metadata:
         all_metadata_src = src_data_object.metadata.items()
         md_operations = []
-        metadata_is_list = True if type(metadata) == list else False
+        metadata_is_list = True if metadata is list else False
         for avu in all_metadata_src:
             if metadata == "all" or (metadata_is_list and avu.name in metadata):
                 md_operations.append(AVUOperation(operation="add", avu=avu))
@@ -391,6 +395,10 @@ def wrap_irods_move_collection(self, path, **kwargs):
         path=path,
     )
 
+    # @experimental Experimental or permanent: have a debug = dry-run option? It could later also be useful for
+    # dynamic adding new beat configs through forms
+    dry_run = kwargs.pop("dry_run", False)
+
     if result_dict:
 
         dst_template = kwargs.pop(
@@ -408,9 +416,9 @@ def wrap_irods_move_collection(self, path, **kwargs):
 
         logger.info(f"Path {path} matches regex {path_regex} with result {result_dict}")
 
-        dest_path = mf_apply_jinja2_template(dst_template, **result_dict)
+        dest_path = mf_apply_jinja2_template(dst_template, **result_dict)  # type: ignore
         logger.info(
-            f"Destination path for {path} is {dest_pah} using template {dst_template}"
+            f"Destination path for {path} is {dest_path} using template {dst_template}"
         )
         dest_parent_path = "/".join(dest_path.split("/")[:-1])
         dest_parent_must_exist = kwargs.pop("dest_parent_must_exist", False)
@@ -430,12 +438,13 @@ def wrap_irods_move_collection(self, path, **kwargs):
                     f"Failed to create destination collection parent: {dest_parent_path}"
                 ) from e
 
-        irods_ingest_move_collection(
-            irods_session=irods_session,
-            src=path,
-            dst=dest_path,
-            acls=kwargs.get("acls", {}),
-        )
+        if not dry_run:
+            irods_ingest_move_collection(
+                irods_session=irods_session,
+                src=path,
+                dst=dest_path,
+                acls=kwargs.get("acls", {}),
+            )
 
         return dest_path
 
