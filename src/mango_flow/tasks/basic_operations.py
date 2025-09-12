@@ -101,7 +101,7 @@ def extract_variables_by_regex(
     return False
 
 
-def irods_ingest_move_data_object(
+def irods_move_data_object(
     irods_session: iRODSSession, src: str, dst: str, acls: dict = {}
 ):
     """
@@ -120,7 +120,7 @@ def irods_ingest_move_data_object(
         raise MFBasicIngestException(exception=e, src=src, dest=dst)
 
 
-def irods_ingest_move_collection(
+def irods_move_collection(
     irods_session: iRODSSession, src: str, dst: str, acls: dict = {}
 ):
     """"""
@@ -238,7 +238,7 @@ def irods_ingest_copy_data_object_streaming(
 
 
 @shared_task(
-    name="mango_flow.irods.ingest_move_data_object", bind=True, base=MangoFlowTask
+    name="mango_flow.irods.data_object.move", bind=True, base=MangoFlowTask
 )
 def wrap_irods_ingest_move_data_object(self, path, **kwargs):
     """
@@ -257,7 +257,7 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
         client_user = kwargs.pop("client_user", None)
         zone = pathlib.Path(path).parts[1]
         irods_session = get_zone_operator_session(zone, client_user=client_user)
-        irods_ingest_move_data_object(
+        irods_move_data_object(
             irods_session=irods_session,
             src=path,
             dst=dst_path,
@@ -332,7 +332,7 @@ def test_pattern_and_jinja_transform(self, path, path_regex, dst_template, **kwa
 
 
 @shared_task(
-    name="mango_flow.irods.ingest_copy_data_object", bind=True, base=MangoFlowTask
+    name="mango_flow.irods.data_object.copy", bind=True, base=MangoFlowTask
 )
 def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
     """"""
@@ -384,7 +384,7 @@ def wrap_irods_ingest_copy_data_object(self, path, **kwargs):
 
 
 @shared_task(
-    name="mango_flow.irods.ingest_move_collection", bind=True, base=MangoFlowTask
+    name="mango_flow.irods.collection.move", bind=True, base=MangoFlowTask
 )
 def wrap_irods_move_collection(self, path, **kwargs):
     """ """
@@ -401,8 +401,8 @@ def wrap_irods_move_collection(self, path, **kwargs):
 
     if result_dict:
 
-        dst_template = kwargs.pop(
-            "dst_template"
+        dest_template = kwargs.pop(
+            "dest_template"
         )  # @Todo rename to dest_template or even destination_template, bc break for existing configs
         # dest_path = mf_apply_jinja2_template(dst_template, **result_dict)
         client_user = kwargs.pop("client_user", None)
@@ -411,14 +411,14 @@ def wrap_irods_move_collection(self, path, **kwargs):
         result_dict = populate_path_variables_dict_with_irods_items(
             irods_session,
             path_variables_dict=result_dict,  # type: ignore
-            jinja_template_string=dst_template,
+            jinja_template_string=dest_template,
         )
 
         logger.info(f"Path {path} matches regex {path_regex} with result {result_dict}")
 
-        dest_path = mf_apply_jinja2_template(dst_template, **result_dict)  # type: ignore
+        dest_path = mf_apply_jinja2_template(dest_template, **result_dict)  # type: ignore
         logger.info(
-            f"Destination path for {path} is {dest_path} using template {dst_template}"
+            f"Destination path for {path} is {dest_path} using template {dest_template}"
         )
         dest_parent_path = "/".join(dest_path.split("/")[:-1])
         dest_parent_must_exist = kwargs.pop("dest_parent_must_exist", False)
@@ -439,7 +439,7 @@ def wrap_irods_move_collection(self, path, **kwargs):
                 ) from e
 
         if not dry_run:
-            irods_ingest_move_collection(
+            irods_move_collection(
                 irods_session=irods_session,
                 src=path,
                 dst=dest_path,
