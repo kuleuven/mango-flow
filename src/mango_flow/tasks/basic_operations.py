@@ -188,7 +188,7 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
             jinja_template_string=dest_template,
         )
 
-        dst_path = mf_apply_jinja2_template(dest_template, **result_dict)
+        dest_path = mf_apply_jinja2_template(dest_template, **result_dict)
 
         dest_parent_path = "/".join(dest_path.split("/")[:-1])
         dest_parent_must_exist = kwargs.pop("dest_parent_must_exist", False)
@@ -211,11 +211,11 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
             irods_move_data_object(
                 irods_session=irods_session,
                 src=path,
-                dst=dst_path,
+                dst=dest_path,
                 acls=kwargs.get("acls", {}),
             )
 
-        return dst_path
+        return dest_path
 
     else:
         # raise an error in case of no match to break any further processing in chains
