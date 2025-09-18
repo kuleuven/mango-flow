@@ -54,3 +54,33 @@ def search_items_via_metadata(
     metadata: list = [],
 ) -> list:
     pass
+
+
+def get_modified_collection_paths(
+    session: iRODSSession,
+    subtree: str,
+    modified_since: datetime | None = None,
+):
+    """
+    modified_since must be a datetime.datetime object with TZ set to UTC, as the datime values stored in iRODS are always in UTC
+    modified_mode : "data_object", "metadata"
+    The value "any" will be added later as it requires iRODS >=4.3.2 and PRC >=2.0.2 to be run efficiently
+    """
+
+    objects = [Collection.name]
+
+    filters = []
+    # only data objects, also avoid the duplicates in the result
+    filters += [Like(Collection.name, f"{subtree}%")]
+    if modified_since:
+        filters += [Criterion(">=", Collection.modify_time, modified_since)]
+
+    query = Query(session, *objects).filter(*filters).limit(MYSQL_IRODS_QUERY_LIMIT)
+    try:
+        results = []
+        result = query.execute()
+        for r in result:
+            results.append(f"{r[Collection.name]}")
+    except Exception as e:
+        results = []
+    return results

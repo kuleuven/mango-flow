@@ -34,6 +34,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
 
     client_user = item_config["trigger"]["beat"].pop("client_user", None)
     monitoring_offset = item_config["trigger"]["beat"].pop("monitoring_offset", 0)
+    item_type = item_config["trigger"]["beat"].pop("item_type", None)
     path_input_mode = item_config["trigger"]["beat"].pop(
         "path_input_mode", "single"
     )  # multi # single is the default, multi means all changed paths are passed in 1 go  into the flow entry point
@@ -48,6 +49,10 @@ def parse_beat_flow_item(item_config: dict) -> dict:
         "path_input_mode": path_input_mode,
         "monitoring_offset": monitoring_offset,
     }
+
+    # for monitoring modified changes, the item type is optional and defaults to data_object in the monitor task
+    if item_type:
+        beatconfig["kwargs"]["item_type"] = item_type
 
     # process parameters for optional metadata monitoring
     beatconfig["kwargs"]["metadata"] = item_config["match"].get("metadata", {})
