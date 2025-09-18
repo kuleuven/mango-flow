@@ -110,7 +110,7 @@ def mango_flow_noop(self, *args, **kwargs):
 beat_schedule = {
     "heartbeat-300-seconds": {
         "task": "mango_flow.schedule.heartbeat",
-        "schedule": 300.0,
+        "schedule": 3600.0,
     }
 }
 

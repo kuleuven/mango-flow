@@ -116,7 +116,7 @@ def mango_flow_regex_search_path(
     return {}
 
 
-def populate_mango_flow_regex_search_path_with_irods_items(
+def populate_path_variables_dict_with_irods_items(
     irods_session: iRODSSession,
     path_variables_dict: dict[str, dict],
     jinja_template_string: str,
