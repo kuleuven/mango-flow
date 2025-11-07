@@ -30,7 +30,6 @@ def search_metadata_collection(
     print(f"search_metadata_collection: {subtree=}, {metadata=}")
 
     for metadata_name, metadata_value in metadata.items():
-
         filters += [Criterion("=", CollectionMeta.name, metadata_name)]
         if not isinstance(metadata_value, bool):
             comparison = "like" if metadata_value.find("%") != -1 else "="
@@ -56,7 +55,6 @@ def search_metadata_data_object(
     )
 
     for metadata_name, metadata_value in metadata.items():
-
         filters += [Criterion("=", CollectionMeta.name, metadata_name)]
         if not isinstance(metadata_value, bool):
             comparison = "like" if metadata_value.find("%") != -1 else "="
@@ -187,20 +185,32 @@ def monitor_subtree(
         else None
     )
 
+    max_age = (
+        (
+            datetime.datetime.now(datetime.UTC)
+            - datetime.timedelta(seconds=monitoring_offset)
+        )
+        if monitoring_offset
+        else None
+    )
+
     if item_type == "data_object":
         item_paths = get_modified_data_object_paths(
             irods_session,
             subtree=subtree,
             modified_mode="data_object",
             modified_since=modified_since,
+            max_age=max_age,
         )
     elif item_type == "collection":
         item_paths = get_modified_collection_paths(
             irods_session,
             subtree=subtree,
             modified_since=modified_since,
+            max_age=max_age,
         )
-    # item_paths += get_modified_data_object_paths(
+    # Cannot use metadata modified,
+    #  item_paths += get_modified_data_object_paths(
     #     irods_session,
     #     subtree=subtree,
     #     modified_mode="metadata",
