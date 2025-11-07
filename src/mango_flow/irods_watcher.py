@@ -6,15 +6,14 @@ from irods.models import Collection, DataObject, DataObjectMeta
 from irods.query import Query
 from irods.session import iRODSSession
 
-MYSQL_IRODS_QUERY_LIMIT = os.getenv("MYSQL_IRODS_QUERY_LIMIT", 20000)
-
-MYSQL_IRODS_QUERY_LIMIT = os.getenv("MYSQL_IRODS_QUERY_LIMIT", 20000)
+MANGO_FLOW_MONITOR_QUERY_LIMIT = os.getenv("MANGO_FLOW_MONITOR_QUERY_LIMIT", 100000)
 
 
 def get_modified_data_object_paths(
     session: iRODSSession,
     subtree: str,
     modified_since: datetime | None = None,
+    max_age: datetime | None = None,
     modified_mode="data_object",
 ):
     """
@@ -29,13 +28,20 @@ def get_modified_data_object_paths(
     # only data objects, also avoid the duplicates in the result
     filters += [Criterion("=", DataObject.replica_number, 0)]
     filters += [Like(Collection.name, f"{subtree}%")]
+
     if modified_since:
         if modified_mode == "data_object":
             filters += [Criterion(">=", DataObject.modify_time, modified_since)]
         if modified_mode == "metadata":
             filters += [Criterion(">=", DataObjectMeta.modify_time, modified_since)]
 
-    query = Query(session, *objects).filter(*filters).limit(MYSQL_IRODS_QUERY_LIMIT)
+    if max_age:
+        if modified_mode == "data_object":
+            filters += [Criterion("<=", DataObject.modify_time, max_age)]
+        if modified_mode == "metadata":
+            filters += [Criterion("<=", DataObjectMeta.modify_time, max_age)]
+
+    query = Query(session, *objects).filter(*filters).limit(MANGO_FLOW_MONITOR_QUERY_LIMIT)
     try:
         results = []
         result = query.execute()
@@ -60,6 +66,7 @@ def get_modified_collection_paths(
     session: iRODSSession,
     subtree: str,
     modified_since: datetime | None = None,
+    max_age: datetime | None = None,
 ):
     """
     modified_since must be a datetime.datetime object with TZ set to UTC, as the datime values stored in iRODS are always in UTC
@@ -74,6 +81,8 @@ def get_modified_collection_paths(
     filters += [Like(Collection.name, f"{subtree}%")]
     if modified_since:
         filters += [Criterion(">=", Collection.modify_time, modified_since)]
+    if max_age:
+        filters += [Criterion("<=", Collection.modify_time, max_age)]
 
     query = Query(session, *objects).filter(*filters).limit(MYSQL_IRODS_QUERY_LIMIT)
     try:
