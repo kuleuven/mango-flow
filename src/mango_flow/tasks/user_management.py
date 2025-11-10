@@ -161,8 +161,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
     client_user = kwargs.pop("client_user", None)
 
     logger.info(f"user_management_enforce_acls_parentt: {client_user=}")
-    recursive = kwargs.pop("recursive", True)
-    logger.info(f"user_management_enforce_acls_parent: {recursive=}")
+
     discard_existing_acls = kwargs.pop("discard_existing_acls", False)
 
     irods_session: iRODSSession = get_zone_operator_session(
@@ -170,6 +169,13 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
     )
 
     irods_item = get_irods_item(irods_session, dest_path)
+
+    if isinstance(irods_item, iRODSCollection):
+        recursive = kwargs.pop("recursive", True)
+    else:
+        recursive = False
+
+    logger.info(f"user_management_enforce_acls_parent: {recursive=}")
 
     parent_collection = irods_session.collections.get(
         "/".join(dest_path.split("/")[:-1])
