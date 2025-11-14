@@ -190,6 +190,10 @@ def wrap_irods_ingest_move_data_object(self, path, **kwargs):
 
         dest_path = mf_apply_jinja2_template(dest_template, **result_dict)
 
+        logger.info(f"{result_dict=}")
+
+        logger.info(f"Move data object: {dest_path=}")
+
         dest_parent_path = "/".join(dest_path.split("/")[:-1])
         dest_parent_must_exist = kwargs.pop("dest_parent_must_exist", False)
         if dest_parent_must_exist:
