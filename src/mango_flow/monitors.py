@@ -187,7 +187,7 @@ def monitor_subtree(
 
     max_age = (
         (
-            datetime.datetime.now(datetime.UTC)
+            datetime.datetime.now(datetime.timezone.utc)
             - datetime.timedelta(seconds=monitoring_offset)
         )
         if monitoring_offset
