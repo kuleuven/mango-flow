@@ -216,3 +216,4 @@ def get_zone_operator_session_zone_via_path(
         return get_zone_operator_session(zone, client_user=client_user)
     except Exception as e:
         return str(e)
+

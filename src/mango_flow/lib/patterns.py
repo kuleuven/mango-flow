@@ -1,8 +1,10 @@
 import pathlib
 import re
-from irods.session import iRODSSession
-from irods.data_object import iRODSDataObject
+
 from irods.collection import iRODSCollection
+from irods.data_object import iRODSDataObject
+from irods.session import iRODSSession
+
 from .util import get_irods_item
 
 # -*- coding: utf-8 -*-

@@ -134,6 +134,10 @@ mango_flow = Celery(
     worker_concurrency=2,
     beat_max_loop_interval=10,  # seconds
     beat_schedule=beat_schedule,
+    result_extended=True,
+    task_track_started=True,
+    worker_send_task_events=True,
+    task_send_sent_event=True,
 )
 
 # specific for the redbeat scheduler
