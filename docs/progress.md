@@ -10,13 +10,13 @@ For example [mf_test_tar()](https://gitea.icts.kuleuven.be/foz/mango-flow/src/co
 2. As it runs, the task has to report its status to the redis database.
 
 For example, a [`create_frigo_tar_archive()`](https://gitea.icts.kuleuven.be/foz/cold-storage/src/commit/b60897330a94a4febac95268eecc796c05ca0313/src/cold_storage/tasks/frigo.py#L118-L328),
-which uses the [`CheckPointTar` class](./mango_tar.md#the-checkpointtar-class),
+which uses the [`TarOrchestrator` class](./mango_tar.md#the-tarorchestrator-class),
 registers [a guard to register its status](https://gitea.icts.kuleuven.be/foz/cold-storage/src/commit/b60897330a94a4febac95268eecc796c05ca0313/src/cold_storage/tasks/frigo.py#L107-L115). The guard calls the `update_state()` method of the Celery task.
 
 An alternative (in development) would be to use
 [the dedicated dataclass `TaskProgressPart`](#a-dataclass-for-keeping-track-of-progress)
 to register and compute progress information;
-a `CheckPointTar` instance could initialize this by default
+a `TarOrchestrator` instance could initialize this by default
 at the individual file level and to count both files and bytes for a tar,
 and update the values with each milestone (uploaded chunks or files).
 
