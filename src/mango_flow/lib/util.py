@@ -231,7 +231,7 @@ def fetch_all_irods_item_paths_for_subtree(
 ):
     COUNT_COLUMN = "DATA_ID" if item_type == "data_object" else "COLL_ID"
     SELECT_COLUMS = (
-        "DATA_PATH, DATA_SIZE, DATA_MODIFY_TIME, DATA_CHECKSUM"
+        "COLL_NAME, DATA_NAME, DATA_SIZE, DATA_MODIFY_TIME, DATA_CHECKSUM"
         if item_type == "data_object"
         else "COLL_NAME, COLL_MODIFY_TIME"
     )
@@ -273,12 +273,12 @@ def fetch_all_irods_item_paths_for_subtree(
             for item in q_result:
                 if item_type == "data_object":
                     item_dict = {
-                        "path": item[0],
-                        "size": int(item[1]),
-                        "modified": int(f"0{item[2]}"),
-                        "checksum": item[3],
+                        "path": f"{item[0]}/{item[1]}",
+                        "size": int(item[2]),
+                        "modified": int(f"0{item[3]}"),
+                        "checksum": item[4],
                     }
-                    batch_total_size += int(item[1])
+                    batch_total_size += int(item[2])
                 else:
                     item_dict = {
                         "path": item[0],
