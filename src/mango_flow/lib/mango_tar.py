@@ -430,7 +430,7 @@ def add_bytes_item_to_tar(tar_fp, item: BytesInputItem):
 
 
 # possible use as callback: register current checksum if any in the orchestrator structure
-def record_checksum(item: TarInputItem, *, orchestrator: TarOrchestrator):
+def record_checksum(orchestrator: TarOrchestrator, item: TarInputItem):
     orchestrator.checksums.append(
         {
             "name": item.name,
@@ -468,7 +468,6 @@ def create_tar_from_iterators_and_orchestrator(
         # MAIN LOOP
         for tar_item in object_iterator:
             with tar_item.open_for_read() as read_fp:
-                # print(f"Treating file : {irods_item.name}")
 
                 orchestrator.at_current_file_start(item=tar_item)
                 stream_fp_to_tar(
