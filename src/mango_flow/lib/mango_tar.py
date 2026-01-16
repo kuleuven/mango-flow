@@ -242,7 +242,8 @@ class TarOrchestrator:
         )
 
         self.save_cycle_reference_time = time.time()
-        self.report_reference_time = time.time()
+        # self.report_reference_time = time.time()
+        self.guard_report_reference_time = time.time()
 
     def add_callback(self, scope, name, callback: functools.partial):
         if scope in self.callbacks:
@@ -430,7 +431,7 @@ def add_bytes_item_to_tar(tar_fp, item: BytesInputItem):
 
 
 # possible use as callback: register current checksum if any in the orchestrator structure
-def record_checksum(item: TarInputItem, *, orchestrator: TarOrchestrator):
+def record_checksum(orchestrator: TarOrchestrator, item: TarInputItem):
     orchestrator.checksums.append(
         {
             "name": item.name,
@@ -442,16 +443,17 @@ def record_checksum(item: TarInputItem, *, orchestrator: TarOrchestrator):
     )
 
 
-def flush_checksums(orchestrator: TarOrchestrator, fp, format="bagit", name_field="name"):
-    match format:
-        case "bagit":
-            for item in orchestrator.checksums:
-                fp.write(f"{item['checksum']} {item[name_field]}\n")
-        case "jsonline":
-            for item in orchestrator.checksums:
-                fp.write(f"{json.dumps(item)}\n")
+def flush_checksums(orchestrator: TarOrchestrator, filename: str, format="bagit", name_field="name"):
+    with pathlib.Path(filename).open("a") as fp:
+        match format:
+            case "bagit":
+                for item in orchestrator.checksums:
+                    fp.write(f"{item['checksum']} {item[name_field]}\n")
+            case "jsonline":
+                for item in orchestrator.checksums:
+                    fp.write(f"{json.dumps(item)}\n")
 
-    orchestrator.checksums.clear()
+        orchestrator.checksums.clear()
 
 
 def create_tar_from_iterators_and_orchestrator(
@@ -468,7 +470,6 @@ def create_tar_from_iterators_and_orchestrator(
         # MAIN LOOP
         for tar_item in object_iterator:
             with tar_item.open_for_read() as read_fp:
-                # print(f"Treating file : {irods_item.name}")
 
                 orchestrator.at_current_file_start(item=tar_item)
                 stream_fp_to_tar(
@@ -498,7 +499,7 @@ def create_tar_from_iterators_and_orchestrator(
 
         # WRITE MANIFEST FILE
         orchestrator.at_main_end()
-        write_tar_end(dest_tar)
+        # write_tar_end(dest_tar)
 
     except (
         ManGOFlowTaskAbortException
