@@ -499,7 +499,7 @@ def create_tar_from_iterators_and_orchestrator(
 
         # WRITE MANIFEST FILE
         orchestrator.at_main_end()
-        write_tar_end(dest_tar)
+        # write_tar_end(dest_tar)
 
     except (
         ManGOFlowTaskAbortException
