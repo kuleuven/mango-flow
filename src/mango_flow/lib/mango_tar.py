@@ -242,7 +242,8 @@ class TarOrchestrator:
         )
 
         self.save_cycle_reference_time = time.time()
-        self.report_reference_time = time.time()
+        # self.report_reference_time = time.time()
+        self.guard_report_reference_time = time.time()
 
     def add_callback(self, scope, name, callback: functools.partial):
         if scope in self.callbacks:
@@ -442,16 +443,17 @@ def record_checksum(orchestrator: TarOrchestrator, item: TarInputItem):
     )
 
 
-def flush_checksums(orchestrator: TarOrchestrator, fp, format="bagit", name_field="name"):
-    match format:
-        case "bagit":
-            for item in orchestrator.checksums:
-                fp.write(f"{item['checksum']} {item[name_field]}\n")
-        case "jsonline":
-            for item in orchestrator.checksums:
-                fp.write(f"{json.dumps(item)}\n")
+def flush_checksums(orchestrator: TarOrchestrator, filename: str, format="bagit", name_field="name"):
+    with pathlib.Path(filename).open("a") as fp:
+        match format:
+            case "bagit":
+                for item in orchestrator.checksums:
+                    fp.write(f"{item['checksum']} {item[name_field]}\n")
+            case "jsonline":
+                for item in orchestrator.checksums:
+                    fp.write(f"{json.dumps(item)}\n")
 
-    orchestrator.checksums.clear()
+        orchestrator.checksums.clear()
 
 
 def create_tar_from_iterators_and_orchestrator(
