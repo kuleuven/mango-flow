@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import re
+import time
 import typing
 
 import jsonlines
@@ -225,20 +226,20 @@ def fetch_all_irods_item_paths_for_subtree(
     sort: bool = False,
     local_file_name: str | None = None,
     local_file_type: str = "jsonl",  # only jsonl for now, used as extension if none is specified in filename
-    batch_size: int = 10000,  # only useful in case huge amount of items and results should be recorded in a file
+    batch_size: int = 100_000,  # only useful in case huge amount of items and results should be recorded in a file
     iteration_call_back: typing.Callable
     | None = None,  # will mostly be progress reporting if set
 ):
     COUNT_COLUMN = "DATA_ID" if item_type == "data_object" else "COLL_ID"
     SELECT_COLUMS = (
-        "COLL_NAME, DATA_NAME, DATA_SIZE, DATA_MODIFY_TIME, DATA_CHECKSUM"
+        "DISTINCT COLL_NAME, DATA_NAME, DATA_SIZE, DATA_MODIFY_TIME, DATA_CHECKSUM"
         if item_type == "data_object"
-        else "COLL_NAME, COLL_MODIFY_TIME"
+        else "DISTINCT COLL_NAME, COLL_MODIFY_TIME"
     )
     SORT_EXPRESSION = ""  # no sorting for now, performance impact and consistency risk in batch processing
 
     q_result = irods_session.genquery2(
-        f"SELECT COUNT({COUNT_COLUMN}) where COLL_NAME like '{subtree_path}%' {SORT_EXPRESSION}"
+        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where COLL_NAME like '{subtree_path}%' {SORT_EXPRESSION}"
     )
 
     total = int(q_result[0][0])
@@ -246,7 +247,7 @@ def fetch_all_irods_item_paths_for_subtree(
     all_items = []
     total_size = 0
     total_processed = 0
-
+    start_time = time.time()
     iteration = 0
     if local_file_name:
         # check if the proper file name extension is present and add it if not
@@ -263,6 +264,7 @@ def fetch_all_irods_item_paths_for_subtree(
     try:
         # start batch processing
         for offset in range(0, total, batch_size):
+            start_time_iteration = time.time()
             iteration += 1
             iteration_items = []
             batch_total_size = 0
@@ -297,14 +299,18 @@ def fetch_all_irods_item_paths_for_subtree(
             else:
                 all_items += iteration_items
             if iteration_call_back:
+                current_time = time.time()
                 iteration_call_back(
                     {
+                        "item_type": item_type,
                         "stats": {
                             "iteration": iteration,
                             "batch_processed": len(q_result),
                             "batch_total_bytes": batch_total_size,
                             "total_processed": total_processed,
                             "total_bytes": total_size,
+                            "iteration_time": start_time_iteration - current_time,
+                            "total_time": start_time - current_time,
                         },
                         "status": "ITERATION_SUCCESS",
                     }
