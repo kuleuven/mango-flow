@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """This module contains validation functions and models for certain Mango Flow models and patterns.
 mostly using Pydantic
+
+@todo rename this module to validation_models instead
 """
 
 from typing import Dict, List, Literal, Optional, Union
