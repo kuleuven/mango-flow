@@ -1,0 +1,21 @@
+{% for raw_result in raw_results %}
+    <h4 {% if raw_result.state == 'SUCCESS' %}class="text-success"{% endif %}>Task {{ raw_result.name }}</h4>
+    <p>Status: {{ raw_result.state }}</p>
+    {% if raw_result.progress_items %}
+        {% for progress_item in raw_result.progress_items %}
+            <h4> {{ progress_item.title }} </h4>
+            {% if progress_item.name %}
+                <p>Current: {{ progress_item.name }}</p>
+            {% endif %}
+            {% if progress_item.total %}
+                <progress id="progress-bar-{{ loop.index }}"
+                          value="{{ progress_item.value }}"
+                          max="{{ progress_item.total }}">{{ progress_item.value }}</progress>
+                <label for="progress-bar-{{ loop.index }}">{{ progress_item.unit }}</label>
+            {% else %}
+                <p>Processed: {{ progress_item.pprint_value() }} {{ progress_item.unit }}</p>
+            {% endif %}
+            <p> Started: {{ progress_item.pprint_elapsed() }}</p>
+        {% endfor %}
+    {% endif %}
+{% endfor %}

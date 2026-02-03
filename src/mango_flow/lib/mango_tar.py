@@ -230,6 +230,7 @@ class TarOrchestrator:
 
         self.last_good_write = {}
         self.checksums = []  # may not be used, secondary storage for manifest output
+        self.total_checksums = 0
         # progress
         self.current_file_progress = TaskProgressPart(
             title="File progress", unit="bytes", start_time=self.start_time
@@ -239,6 +240,9 @@ class TarOrchestrator:
         )
         self.overall_size_progress = TaskProgressPart(
             title="Overall bytes progress", unit="bytes", start_time=self.start_time
+        )
+        self.overall_collection_progress = TaskProgressPart(
+            title="Collection progress", unit="collections", start_time=self.start_time
         )
 
         self.save_cycle_reference_time = time.time()
@@ -341,9 +345,12 @@ class TarOrchestrator:
             self.callbacks["delay_point"][name](self)
 
     def at_collection_item(self, item):
+        self.overall_collection_progress.name = item.name
+        self.overall_collection_progress.value += 1
+
         for name in self.callbacks["collection_item"]:
             print(f"Calling collection callback {name=}")
-            self.callbacks["colection_item"][name](self, item)
+            self.callbacks["collection_item"][name](self, item)
 
     def at_main_end(self):
         """
@@ -441,9 +448,12 @@ def record_checksum(orchestrator: TarOrchestrator, item: TarInputItem):
             "alt_name": item.alt_name,
         }
     )
+    orchestrator.total_checksums += 1
 
 
-def flush_checksums(orchestrator: TarOrchestrator, filename: str, format="bagit", name_field="name"):
+def flush_checksums(
+    orchestrator: TarOrchestrator, filename: str, format="bagit", name_field="name"
+):
     with pathlib.Path(filename).open("a") as fp:
         match format:
             case "bagit":
@@ -470,7 +480,6 @@ def create_tar_from_iterators_and_orchestrator(
         # MAIN LOOP
         for tar_item in object_iterator:
             with tar_item.open_for_read() as read_fp:
-
                 orchestrator.at_current_file_start(item=tar_item)
                 stream_fp_to_tar(
                     read_fp=read_fp,
@@ -511,4 +520,3 @@ def create_tar_from_iterators_and_orchestrator(
         # before we really exit, save some vital info like manifest and last good write
         orchestrator.at_exception()
         raise ValueError("Abnormal termination")
-

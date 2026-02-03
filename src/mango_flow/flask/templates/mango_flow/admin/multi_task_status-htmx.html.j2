@@ -1,0 +1,17 @@
+{% extends "base_admin.html.j2" %}
+{% block body %}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js"
+            integrity="sha384-ZBXiYtYQ6hJ2Y0ZNoYuI+Nq5MqWBr+chMrS/RkXpNzQCApHEhOt2aY8EJgqwHLkJ"
+            crossorigin="anonymous"></script>
+    <div hx-get="/mango_flow/report/multitask/htmx/{{ task_ids }}"
+         hx-trigger="load, every 2s"
+         hx-target="#result-target">
+        <div id="result-target">
+            {# {% for raw_result in raw_results %}
+                <h4 {% if raw_result.state == 'SUCCESS' %}class="text-success"{% endif %}>Task {{ raw_result.name }}</h4>
+                <p>Status: {{ raw_result.state }}</p>
+            {% endfor %} #}
+            <p> please wait ... loading</p>
+        </div>
+    </div>
+{% endblock body %}

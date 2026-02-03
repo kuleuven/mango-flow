@@ -12,18 +12,16 @@ class TaskProgressPart:
     unit: str = ""
     start_time: float = 0.0
     current_time: float = 0.0
+    report_time: float = 0.0
     total: int | float = 0
     value: int | float = 0
     name: str = ""
 
-    # Not sure about the alternative counters, they could go into their own instance of the same class
-    # alt_total: int | float | None = None
-    # alt_total_unit: str | None = None
-    # alt_total_pretty_func = str
-
     def __post_init__(self):
         if self.unit.lower() in ["byte", "bytes"]:
-            self.pretty_func_size = humanize.naturalsize  # callable for pretty printing value
+            self.pretty_func_size = (
+                humanize.naturalsize
+            )  # callable for pretty printing value
         else:
             self.pretty_func_size = humanize.metric
         self.pretty_func_time = (
