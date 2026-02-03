@@ -18,38 +18,4 @@
             <p> Started: {{ progress_item.pprint_elapsed() }}</p>
         {% endfor %}
     {% endif %}
-
-
-
-
-        {% if raw_result.info.current_file_progress %}
-            <p>File: {{ raw_result.info.current_file_progress.name }}</p>
-            <div>
-                <label for="progress-bar-overall">{{ raw_result.info.current_file_progress.title }}</label>
-                <progress id="progress-bar-overall"
-                          value="{{ raw_result.info.current_file_progress.value }}"
-                          max="{{ raw_result.info.current_file_progress.total }}">{{ raw_result.info.current_file_progress.value }}</progress>
-            <p>{{ raw_result.info.current_file_progress.value }} / {{ raw_result.info.current_file_progress.total }}</p>
-            </div>
-        {% endif %}
-        {% if raw_result.info.overall_size_progress %}
-            <div>
-                <label for="progress-bar-overall">{{ raw_result.info.overall_size_progress.title }}</label>
-                <progress id="progress-bar-overall"
-                          value="{{ raw_result.info.overall_size_progress.value }}"
-                          max="{{ raw_result.info.overall_size_progress.total }}">{{ raw_result.info.overall_size_progress.value }}</progress>
-            <p>{{ raw_result.info.overall_size_progress.value }} / {{ raw_result.info.overall_size_progress.total }}</p>
-            </div>
-        {% endif %}
-        <button class="btn btn-primary"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#task_id_{{ raw_result.id }}"
-                aria-expanded="false"
-                aria-controls="details for ">Show raw output...</button>
-        <div class="collapse show" id="task_id_{{ raw_result.id }}">
-            <pre>
-    {{ raw_result.info | pprint }}
-            </pre>
-        </div>
 {% endfor %}
