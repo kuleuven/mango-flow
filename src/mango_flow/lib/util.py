@@ -239,14 +239,11 @@ def fetch_all_irods_item_paths_for_subtree(
     )
     SORT_EXPRESSION = ""  # no sorting for now, performance impact and consistency risk in batch processing
 
-    q_root = irods_session.genquery2(
-        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where COLL_NAME = '{subtree_path}' {SORT_EXPRESSION}"
-    )
-    q_subcollections = irods_session.genquery2(
-        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where COLL_NAME like '{subtree_path}/%' {SORT_EXPRESSION}"
+    q_result = irods_session.genquery2(
+        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%' {SORT_EXPRESSION}"
     )
 
-    total = int(q_root[0][0]) + int(q_subcollections[0][0])
+    total = int(q_result[0][0])
 
     all_items = []
     total_size = 0
@@ -273,15 +270,10 @@ def fetch_all_irods_item_paths_for_subtree(
             iteration_items = []
             batch_total_size = 0
 
-            q_root = irods_session.genquery2(
+            q_result = irods_session.genquery2(
                 f"SELECT {SELECT_COLUMS} "
-                f"WHERE COLL_NAME = '{subtree_path}' LIMIT {batch_size} OFFSET {offset}"
+                f"WHERE COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%' LIMIT {batch_size} OFFSET {offset}"
             )
-            q_subcollections = irods_session.genquery2(
-                f"SELECT {SELECT_COLUMS} "
-                f"WHERE COLL_NAME LIKE '{subtree_path}/%' LIMIT {batch_size} OFFSET {offset}"
-            )
-            q_result = q_root + q_subcollections
             for item in q_result:
                 if item_type == "data_object":
                     item_dict = {
