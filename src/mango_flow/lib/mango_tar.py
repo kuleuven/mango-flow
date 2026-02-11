@@ -191,35 +191,11 @@ def write_tar_end(tarfile_fp):
     tarfile_fp.write(EMPTY_BLOCK + EMPTY_BLOCK)
 
 
-# def read_next_tar_header(fp):
-#     """Read next file header from the current file pointer position."""
-#     pos = fp.tell()
-#     header_block = fp.read(BLOCK_SIZE)
-#     if header_block == EMPTY_BLOCK:
-#         return None, None  # End of tar
-#     if header_block == b"":
-#         return None, None  # EOF
-#     tarinfo = tarfile.TarInfo.frombuf(header_block, encoding='utf-8', errors='surrogateescape')
-#     return tarinfo, pos
-
-
-# def truncate_tar(fp, truncate_pos):
-#     """
-#     Truncate the tar file at the given position.
-#     After this, calling write_tar_end(fp) will make it valid again.
-#     """
-#     fp.truncate(truncate_pos)
-#     fp.seek(truncate_pos)
-
-
-# ManGO specific implementation with actionable monitoring
-
-
-class CheckPointTar:
+class TarOrchestrator:
     """
     Actionable monitoring base class. This is to be passed at the various levels in the tarring process
     Callbacks can be inserted and will be called depending on the level. They are supposed to be
-    self suffient in their operations. The checkpoint class does not assume any other responsibility
+    self suffient in their operations. The orchestrator class does not assume any other responsibility
     than to call the callbacks with a single positional argument which depends on the level.
     """
 
@@ -254,6 +230,7 @@ class CheckPointTar:
 
         self.last_good_write = {}
         self.checksums = []  # may not be used, secondary storage for manifest output
+        self.total_checksums = 0
         # progress
         self.current_file_progress = TaskProgressPart(
             title="File progress", unit="bytes", start_time=self.start_time
@@ -264,9 +241,13 @@ class CheckPointTar:
         self.overall_size_progress = TaskProgressPart(
             title="Overall bytes progress", unit="bytes", start_time=self.start_time
         )
+        self.overall_collection_progress = TaskProgressPart(
+            title="Collection progress", unit="collections", start_time=self.start_time
+        )
 
         self.save_cycle_reference_time = time.time()
-        self.report_reference_time = time.time()
+        # self.report_reference_time = time.time()
+        self.guard_report_reference_time = time.time()
 
     def add_callback(self, scope, name, callback: functools.partial):
         if scope in self.callbacks:
@@ -335,7 +316,7 @@ class CheckPointTar:
         self.last_good_write = {"path": path, "tar_file_end": dest_tar.tell()}
         # now call the tar_me_too_partials
         # guards
-        for name, guard in self.callbacks["file_end"].items():
+        for name, guard in self.callbacks["guard"].items():
             print(f"Calling guard {name=} at {item.name=}")
             guard(self)
 
@@ -364,9 +345,12 @@ class CheckPointTar:
             self.callbacks["delay_point"][name](self)
 
     def at_collection_item(self, item):
+        self.overall_collection_progress.name = item.name
+        self.overall_collection_progress.value += 1
+
         for name in self.callbacks["collection_item"]:
             print(f"Calling collection callback {name=}")
-            self.callbacks["delay_point"][name](self, item)
+            self.callbacks["collection_item"][name](self, item)
 
     def at_main_end(self):
         """
@@ -396,7 +380,7 @@ class CheckPointTar:
 
 # adapted from basic operations, irods object streaming between zones
 def read_from_fp_in_chunks(
-    read_fp, read_buffer_size, file_size, checkpoint: CheckPointTar | None = None
+    read_fp, read_buffer_size, file_size, orchestrator: TarOrchestrator | None = None
 ):
     position = 0
     while position < file_size:
@@ -407,8 +391,8 @@ def read_from_fp_in_chunks(
         file_chunk = read_fp.read(read_bytes)
         bytes_read = len(file_chunk)
         position += bytes_read
-        if checkpoint:
-            checkpoint.at_chunk_progress(position)
+        if orchestrator:
+            orchestrator.at_chunk_progress(position)
         yield file_chunk
 
 
@@ -417,7 +401,7 @@ def stream_fp_to_tar(
     input_item: TarInputItem,
     tar_dest,
     read_buffer_size,
-    checkpoint=None,
+    orchestrator=None,
 ):
     # first write the header and obtain the position for tha actual file data
     tar_file_position_file_data = write_file_header(
@@ -432,7 +416,7 @@ def stream_fp_to_tar(
         read_fp=read_fp,
         read_buffer_size=read_buffer_size,
         file_size=input_item.size,
-        checkpoint=checkpoint,
+        orchestrator=orchestrator,
     ):
         tar_dest.write(chunk)
         bytes_written += len(chunk)
@@ -453,9 +437,9 @@ def add_bytes_item_to_tar(tar_fp, item: BytesInputItem):
     tar_fp.write(pad_to_block(item.item))
 
 
-# possible use as callback: register current checksum if any in the checkpoint structure
-def record_checksum(item: TarInputItem, *, checkpoint: CheckPointTar):
-    checkpoint.checksums.append(
+# possible use as callback: register current checksum if any in the orchestrator structure
+def record_checksum(orchestrator: TarOrchestrator, item: TarInputItem):
+    orchestrator.checksums.append(
         {
             "name": item.name,
             "size": item.size,
@@ -464,28 +448,31 @@ def record_checksum(item: TarInputItem, *, checkpoint: CheckPointTar):
             "alt_name": item.alt_name,
         }
     )
+    orchestrator.total_checksums += 1
 
 
-def flush_checksums(checkpoint: CheckPointTar, fp, format="bagit", name_field="name"):
-    match format:
-        case "bagit":
-            for item in checkpoint.checksums:
-                fp.write(f"{item['checksum']} {item[name_field]}\n")
-        case "jsonline":
-            for item in checkpoint.checksums:
-                fp.write(f"{json.dumps(item)}\n")
+def flush_checksums(
+    orchestrator: TarOrchestrator, filename: str, format="bagit", name_field="name"
+):
+    with pathlib.Path(filename).open("a") as fp:
+        match format:
+            case "bagit":
+                for item in orchestrator.checksums:
+                    fp.write(f"{item['checksum']} {item[name_field]}\n")
+            case "jsonline":
+                for item in orchestrator.checksums:
+                    fp.write(f"{json.dumps(item)}\n")
 
-    checkpoint.checksums.clear()
+        orchestrator.checksums.clear()
 
 
 def create_tar_from_iterators_and_orchestrator(
     object_iterator,
     collection_iterator,
     dest_tar,
-    orchestrator: CheckPointTar,
+    orchestrator: TarOrchestrator,
 ):
-
-    # just in case: callbacks can obain the tar_fp from the checkpoint
+    # just in case: callbacks can obain the tar_fp from the orchestrator
     setattr(orchestrator, "dest_tar", dest_tar)
 
     try:
@@ -493,15 +480,13 @@ def create_tar_from_iterators_and_orchestrator(
         # MAIN LOOP
         for tar_item in object_iterator:
             with tar_item.open_for_read() as read_fp:
-                # print(f"Treating file : {irods_item.name}")
-
                 orchestrator.at_current_file_start(item=tar_item)
                 stream_fp_to_tar(
                     read_fp=read_fp,
                     input_item=tar_item,
                     tar_dest=dest_tar,
                     read_buffer_size=BLOCK_SIZE * 2048,
-                    checkpoint=orchestrator,
+                    orchestrator=orchestrator,
                 )
             orchestrator.at_current_file_end(item=tar_item, dest_tar=dest_tar)
 
@@ -523,7 +508,7 @@ def create_tar_from_iterators_and_orchestrator(
 
         # WRITE MANIFEST FILE
         orchestrator.at_main_end()
-        write_tar_end(dest_tar)
+        # write_tar_end(dest_tar)
 
     except (
         ManGOFlowTaskAbortException
@@ -535,133 +520,3 @@ def create_tar_from_iterators_and_orchestrator(
         # before we really exit, save some vital info like manifest and last good write
         orchestrator.at_exception()
         raise ValueError("Abnormal termination")
-
-
-# def test_the_thing():
-#     import json
-#     import uuid
-
-#     import rich.progress
-
-#     input_files = [
-#         file
-#         for file in pathlib.Path(".").glob(pattern="../develop/large_files/*")
-#         if file.is_file()
-#     ]
-#     num_files = len(input_files)
-#     total_size = 0
-#     for file in input_files:
-#         total_size += file.stat().st_size
-#     # input_files = [file for file in pathlib.Path(".").glob(pattern="src/mango_flow/develop/large_files/*")]
-#     # input_files = pathlib.Path(".").glob(pattern="src/mango_flow/tasks/*.py")
-
-#     SAVE_INTERVAL_TIME = 10.0  # (seconds)
-
-#     # ####### callables to define in main test task body ###############################
-
-#     def add_metadata_to_tar_test(
-#         item: TarInputItem, dest_tar: io.BufferedWriter
-#     ):  # will be used in partial
-#         metadata = json.dumps(
-#             {
-#                 "name": item.name,
-#                 "secret": item.checksum,
-#                 "birth_date": "yesterday",
-#                 "id": str(uuid.uuid4()),
-#             }
-#         ).encode()
-#         add_bytes_item_to_tar(
-#             dest_tar, BytesInputItem(f"{item.name}.metadata.json", metadata)
-#         )
-
-#     def fake_abort(checkpoint: CheckPointTar):
-#         if checkpoint.num_files_processed > 14:
-#             raise ManGOFlowTaskAbortException()
-
-#     checkpoint = CheckPointTar()
-
-#     # init stats totals
-#     checkpoint.overall_file_progress.total = num_files
-#     checkpoint.overall_size_progress.total = total_size
-#     # add callbacks
-#     checkpoint.add_guard_callback("fake_abort", functools.partial(fake_abort))
-#     checkpoint.add_file_end_callback(
-#         "checksum-save", functools.partial(record_checksum, checkpoint=checkpoint)
-#     )
-#     tar_name = "test-mango-tar.tar"
-#     with pathlib.Path("manifest-sha256.txt").open("w"):
-#         pass
-
-#     # define a task specific cleanup after abort function
-#     def cleanup_after_abort():
-#         pathlib.Path(tar_name).unlink(missing_ok=True)
-#         # @todo cleanup manifest too
-
-#     try:
-#         with open(tar_name, "wb") as dest_tar:
-#             add_metadata_partial = functools.partial(
-#                 add_metadata_to_tar_test, dest_tar=dest_tar
-#             )
-#             checkpoint.add_file_end_callback("add_metadata", add_metadata_partial)
-#             for input_file in input_files:
-#                 with rich.progress.open(input_file, "rb") as read_fp:
-#                     print(f"Treating file : {input_file}")
-
-#                     input_item = FileInputItem(input_file, needs_checksum=True)
-#                     checkpoint.at_current_file_start(item=input_item)
-#                     stream_fp_to_tar(
-#                         read_fp=read_fp,
-#                         input_item=input_item,
-#                         tar_dest=dest_tar,
-#                         read_buffer_size=BLOCK_SIZE * 2048,
-#                         checkpoint=checkpoint,
-#                     )
-#                 # next the stats are updated and callbacks called
-#                 checkpoint.at_current_file_end(item=input_item, dest_tar=dest_tar)
-#                 print(checkpoint.overall_file_progress)
-#                 print(checkpoint.current_file_progress)
-#                 print(checkpoint.overall_size_progress)
-#                 # intermediate save if max save cycle interval is crossed
-#                 if (
-#                     (current_time := time.time()) - checkpoint.save_cycle_reference_time
-#                 ) > SAVE_INTERVAL_TIME:
-#                     with pathlib.Path("manifest-sha256.txt").open("a") as manifest_fp:
-#                         flush_checksums(checkpoint=checkpoint, fp=manifest_fp)
-#                     checkpoint.save_cycle_reference_time = current_time
-
-#             # write_tar_end is actually optional, any recent tar reader will happily accept the missing 2 zero blocks.
-#             # It makes it also more appendable for a recover after crash.
-#             write_tar_end(dest_tar)
-#     except (
-#         ManGOFlowTaskAbortException
-#     ) as e:  # any other exception will not be catched here
-#         print(e)
-#         rich.print(
-#             f"[red] Aborting!!!! after {checkpoint.overall_file_progress.value=}"
-#         )
-#         cleanup_after_abort()
-#         raise (e)  # now we can really exit the task
-
-#     except:  # noqa: E722
-#         # before we really exit, save some vital info like manifest and last good write
-#         with pathlib.Path("manifest-sha256.txt").open("a") as manifest_fp:
-#             flush_checksums(checkpoint=checkpoint, fp=manifest_fp, format="bagit")
-#         with pathlib.Path("last-good-write.txt").open("w") as last_good_write_fp:
-#             last_good_write_fp.write(json.dumps(checkpoint.last_good_write))
-#         raise ValueError("Abnormal termination")
-
-#     # normal succesful execution: finishing up
-#     # save checksums in manifest
-#     with pathlib.Path("manifest-sha256.txt").open("a") as manifest_fp:
-#         flush_checksums(checkpoint=checkpoint, fp=manifest_fp)
-#     elapsed = time.time() - checkpoint.overall_file_progress.start_time
-#     print(
-#         f"Processed {checkpoint.overall_file_progress.value=} files | "
-#         f"{checkpoint.overall_size_progress.pprint_value=} | "
-#         f"{elapsed:.6f} sec | {checkpoint.overall_size_progress.pprint_speed=}"
-#     )
-#     print(f"Recovery data: {checkpoint.last_good_write=}")
-
-
-# if __name__ == "__main__":
-#     test_the_thing()

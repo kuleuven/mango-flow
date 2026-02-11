@@ -3,9 +3,10 @@ import logging
 import os
 import pathlib
 import re
+import time
 import typing
 
-
+import jsonlines
 import pydantic
 import yaml
 from irods.collection import iRODSCollection
@@ -217,3 +218,111 @@ def get_zone_operator_session_zone_via_path(
     except Exception as e:
         return str(e)
 
+
+def fetch_all_irods_item_paths_for_subtree(
+    irods_session: iRODSSession,
+    subtree_path: str,
+    item_type: str = "data_object",
+    sort: bool = False,
+    local_file_name: str | None = None,
+    local_file_type: str = "jsonl",  # only jsonl for now, used as extension if none is specified in filename
+    batch_size: int = 100_000,  # only useful in case huge amount of items and results should be recorded in a file
+    iteration_call_back: typing.Callable
+    | None = None,  # will mostly be progress reporting if set
+):
+    COUNT_COLUMN = "DATA_ID" if item_type == "data_object" else "COLL_ID"
+    SELECT_COLUMS = (
+        "DISTINCT COLL_NAME, DATA_NAME, DATA_SIZE, DATA_MODIFY_TIME, DATA_CHECKSUM"
+        if item_type == "data_object"
+        else "DISTINCT COLL_NAME, COLL_MODIFY_TIME"
+    )
+    SORT_EXPRESSION = ""  # no sorting for now, performance impact and consistency risk in batch processing
+
+    q_result = irods_session.genquery2(
+        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where COLL_NAME like '{subtree_path}%' {SORT_EXPRESSION}"
+    )
+
+    total = int(q_result[0][0])
+
+    all_items = []
+    total_size = 0
+    total_processed = 0
+    start_time = time.time()
+    iteration = 0
+    if local_file_name:
+        # check if the proper file name extension is present and add it if not
+        local_file_name = (
+            local_file_name
+            if local_file_name.endswith(local_file_type)
+            else ".".join([local_file_name, local_file_type])
+        )
+        # deal with different file types @future
+        if local_file_type == "jsonl":
+            item_file = jsonlines.open(local_file_name, "w")
+        else:
+            raise (ValueError)
+    try:
+        # start batch processing
+        for offset in range(0, total, batch_size):
+            start_time_iteration = time.time()
+            iteration += 1
+            iteration_items = []
+            batch_total_size = 0
+            q_result = irods_session.genquery2(
+                f"SELECT {SELECT_COLUMS} "
+                f"WHERE COLL_NAME LIKE '{subtree_path}%' LIMIT {batch_size} OFFSET {offset}"
+            )
+            for item in q_result:
+                if item_type == "data_object":
+                    item_dict = {
+                        "path": f"{item[0]}/{item[1]}",
+                        "size": int(item[2]),
+                        "modified": int(f"0{item[3]}"),
+                        "checksum": item[4],
+                    }
+                    batch_total_size += int(item[2])
+                else:
+                    item_dict = {
+                        "path": item[0],
+                        "modified": int(f"0{item[1]}"),
+                    }
+                iteration_items.append(item_dict)
+
+            total_processed += len(q_result)
+            total_size += batch_total_size
+
+            if local_file_name:
+                if local_file_type == "jsonl":
+                    item_file.write_all(iteration_items)
+                else:
+                    raise (ValueError)
+            else:
+                all_items += iteration_items
+            if iteration_call_back:
+                current_time = time.time()
+                iteration_call_back(
+                    {
+                        "item_type": item_type,
+                        "stats": {
+                            "iteration": iteration,
+                            "batch_processed": len(q_result),
+                            "batch_total_bytes": batch_total_size,
+                            "total_processed": total_processed,
+                            "total_bytes": total_size,
+                            "iteration_time": start_time_iteration - current_time,
+                            "total_time": start_time - current_time,
+                        },
+                        "status": "ITERATION_SUCCESS",
+                    }
+                )
+    except Exception as e:
+        raise (e)
+    finally:
+        if local_file_name:
+            item_file.close()
+
+    return {
+        "type": "file_jsonl" if local_file_name else "list",
+        "stats": {"total_size": total_size, "total_items": total},
+        "payload": local_file_name if local_file_name else all_items,
+    }

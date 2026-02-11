@@ -187,7 +187,7 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
     parent_acls = irods_session.acls.get(parent_collection, report_raw_acls=True)
     current_acls = irods_session.acls.get(
         irods_item,
-        report_raw_acls=True,
+        # report_raw_acls=True,
     )
 
     if discard_existing_acls:
@@ -203,6 +203,9 @@ def user_management_enforce_acls_parent(self, dest_path: str, **kwargs):
                 recursive=recursive,
                 admin=True,
             )
+            logger.info(
+                f"user_management_enforce_acls_parent: discarded acl for {acl.user_name=} on collection {dest_path=} with {recursive=}"
+            )   
         logger.info(
             f"user_management_enforce_acls_parent: discarded existing ACLs on collection {dest_path}"
         )
