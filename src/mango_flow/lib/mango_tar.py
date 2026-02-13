@@ -197,13 +197,17 @@ class TarOrchestrator:
     Callbacks can be inserted and will be called depending on the level. They are supposed to be
     self suffient in their operations. The orchestrator class does not assume any other responsibility
     than to call the callbacks with a single positional argument which depends on the level.
+
+    It will also gather basic statistics which are available via
+
     """
 
     # GUARD_CALLBACK_SCOPE = "guard"
 
     def __init__(
         self,
-        chunk_threshold=None,
+        buffer_size: int | None = None,
+        chunk_threshold: int | None = None,
     ) -> None:
         self.start_time = time.time()
         self.num_bytes_processed = 0
@@ -212,7 +216,8 @@ class TarOrchestrator:
         self.num_files_processed = 0
         self.total_collections = 0
         self.num_collections_processed = 0
-        self.chunk_threshold = chunk_threshold or 2**22  # 4MiB
+        self.buffer_size = buffer_size or 8_000_000
+        self.chunk_threshold = chunk_threshold or (self.buffer_size * 4)
         self.local_dir = "."
         self.save_interval_time = 10.0
         # callbacks
@@ -382,6 +387,7 @@ class TarOrchestrator:
 def read_from_fp_in_chunks(
     read_fp, read_buffer_size, file_size, orchestrator: TarOrchestrator | None = None
 ):
+    """Input streaming"""
     position = 0
     while position < file_size:
         read_bytes = min(
@@ -403,6 +409,7 @@ def stream_fp_to_tar(
     read_buffer_size,
     orchestrator=None,
 ):
+    """"""
     # first write the header and obtain the position for tha actual file data
     tar_file_position_file_data = write_file_header(
         tarfile_fp=tar_dest, input_item=input_item
@@ -485,7 +492,7 @@ def create_tar_from_iterators_and_orchestrator(
                     read_fp=read_fp,
                     input_item=tar_item,
                     tar_dest=dest_tar,
-                    read_buffer_size=BLOCK_SIZE * 2048,
+                    read_buffer_size=orchestrator.buffer_size,
                     orchestrator=orchestrator,
                 )
             orchestrator.at_current_file_end(item=tar_item, dest_tar=dest_tar)
@@ -504,7 +511,7 @@ def create_tar_from_iterators_and_orchestrator(
                 item=tar_item, dest_tar=dest_tar, callbacks=None
             )
 
-        # normal succesful execution: finishing up
+        # normal successful execution: finishing up
 
         # WRITE MANIFEST FILE
         orchestrator.at_main_end()
@@ -512,7 +519,7 @@ def create_tar_from_iterators_and_orchestrator(
 
     except (
         ManGOFlowTaskAbortException
-    ) as e:  # any other exception will not be catched here
+    ) as e:  # any other exception will not be caught here
         orchestrator.at_abort()
         raise (e)  # now we can really exit the task
 
