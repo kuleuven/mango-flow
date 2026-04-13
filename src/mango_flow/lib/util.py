@@ -190,7 +190,7 @@ def bulk_add_metadata(
                     [
                         AVUOperation(
                             "add",
-                            iRODSMeta(name=m_name, value=sub_value, units=unit_text),
+                            iRODSMeta(m_name, sub_value, unit_text),
                         )
                         for sub_value in m_value
                     ]
@@ -200,7 +200,7 @@ def bulk_add_metadata(
                 avu_operations.append(
                     AVUOperation(
                         operation="add",
-                        avu=iRODSMeta(name=m_name, value=m_value, units=unit_text),
+                        avu=iRODSMeta(m_name, m_value, unit_text),
                     )
                 )
 
