@@ -41,6 +41,7 @@ class TarInputItem:
         self._modified = 0.0
         self._checksum = None
         self._alt_name = ""
+        self.path = ""
 
     @property
     def name(self):
@@ -101,6 +102,7 @@ class iRODSInputItem(TarInputItem):
         if isinstance(item, iRODSDataObject) and item.checksum:  # type: ignore # maybe there is no need to do the expensive calculation?
             self._checksum = base64.b64decode(item.checksum.replace("sha2:", "")).hex()  # type: ignore
             self.needs_checksum = False
+        self.path = item.path  # type: ignore
 
     def open_for_read(self):
         return self.item.open("r")
@@ -131,6 +133,7 @@ class FileInputItem(TarInputItem):
         self._size = item.stat().st_size
         self._modified = item.stat().st_mtime
         self._checksum = None
+        self.path = str(item)
 
     def open_for_read(self):
         return self.item.open("rb")
@@ -316,9 +319,7 @@ class TarOrchestrator:
         self.overall_size_progress.current_time = (
             self.overall_file_progress.current_time
         ) = time.time()
-
-        path = item.item.path if item.item is iRODSDataObject else f"{item.item}"  # type: ignore
-        self.last_good_write = {"path": path, "tar_file_end": dest_tar.tell()}
+        
         # now call the tar_me_too_partials
         # guards
         for name, guard in self.callbacks["guard"].items():
@@ -334,6 +335,13 @@ class TarOrchestrator:
         for name in callbacks:
             print(f"Calling file end callback {name=} getting {item.name=}")
             self.callbacks["file_end"][name](self, item)
+    
+        self.last_good_write = {
+            "path": item.path,
+            "tar_file_end": dest_tar.tell(),
+            "files_written": self.overall_file_progress.value,
+            "bytes_written": self.overall_size_progress.value,
+        }
 
     def at_delay_point(self):
         """

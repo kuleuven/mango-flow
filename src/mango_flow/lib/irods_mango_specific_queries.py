@@ -1,14 +1,10 @@
-from irods.session import iRODSSession
-from irods.query import SpecificQuery
-from irods.exception import (
-    CAT_UNKNOWN_SPECIFIC_QUERY,
-    CATALOG_ALREADY_HAS_ITEM_BY_THAT_NAME,
-    CAT_NO_ROWS_FOUND,
-)
-from irods.access import iRODSAccess
-from irods import MAX_SQL_ROWS
-
 import datetime
+
+from irods import MAX_SQL_ROWS
+from irods.access import iRODSAccess
+from irods.exception import CAT_NO_ROWS_FOUND, CAT_UNKNOWN_SPECIFIC_QUERY
+from irods.query import SpecificQuery
+from irods.session import iRODSSession
 
 
 class MangoSpecificQuery(SpecificQuery):
