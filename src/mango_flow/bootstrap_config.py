@@ -63,6 +63,7 @@ def parse_beat_flow_item(item_config: dict) -> dict:
     if (flow := item_config.get("flow", None)) and item_config["flow"].get(
         "mode"
     ) == "single":
+        add_parameters_if_empty(flow["action"])
         beatconfig["kwargs"] |= {"wf_action": flow["action"]["name"]}
         if client_user and (not "client_user" in flow["action"]["parameters"].keys()):
             flow["action"]["parameters"]["client_user"] = client_user
