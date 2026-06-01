@@ -61,7 +61,7 @@ def multi_task_report_htmx(task_ids):
     raw_results = []
     for task_id in task_ids:
         raw_result = AsyncResult(id=task_id, app=mango_flow)
-        if raw_result.info and raw_result.info.get("progress_items", None):
+        if raw_result.info and isinstance(raw_result.info, dict) and raw_result.info.get("progress_items", None):
             # convert them to the richer dataclass version from the saved dict
             print(f"Converting result from task {raw_result.name}")
             progress_items = [
