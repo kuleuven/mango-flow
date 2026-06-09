@@ -84,7 +84,9 @@ def get_modified_collection_paths(
     if max_age:
         filters += [Criterion("<=", Collection.modify_time, max_age)]
 
-    query = Query(session, *objects).filter(*filters).limit(MYSQL_IRODS_QUERY_LIMIT)
+    query = (
+        Query(session, *objects).filter(*filters).limit(MANGO_FLOW_MONITOR_QUERY_LIMIT)
+    )
     try:
         results = []
         result = query.execute()
