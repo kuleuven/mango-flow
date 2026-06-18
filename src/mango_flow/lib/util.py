@@ -238,16 +238,12 @@ def fetch_all_irods_item_paths_for_subtree(
         else "DISTINCT COLL_NAME, COLL_MODIFY_TIME"
     )
     SORT_EXPRESSION = ""  # no sorting for now, performance impact and consistency risk in batch processing
-    MATCH_COLLECTION = f"COLL_NAME = '{subtree_path}'"
-    MATCH_SUBCOLLECTIONS = f"COLL_NAME like '{subtree_path}/%'"
 
     q_result = irods_session.genquery2(
-        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where {MATCH_COLLECTION} {SORT_EXPRESSION}"
-    ) + irods_session.genquery2(
-        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where {MATCH_SUBCOLLECTIONS} {SORT_EXPRESSION}"
+        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where (COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%') {SORT_EXPRESSION}"
     )
 
-    total = sum(int(i[0]) for i in q_result)
+    total = int(q_result[0][0])
 
     all_items = []
     total_size = 0
@@ -268,26 +264,17 @@ def fetch_all_irods_item_paths_for_subtree(
             raise (ValueError)
     try:
         # start batch processing
-        done_with_collection = False
         for offset in range(0, total, batch_size):
             start_time_iteration = time.time()
             iteration += 1
             iteration_items = []
             batch_total_size = 0
 
-            q_result = []
-            if not done_with_collection:
-                q_result += irods_session.genquery2(
-                    f"SELECT {SELECT_COLUMS} "
-                    f"WHERE {MATCH_COLLECTION} LIMIT {batch_size} OFFSET {offset}"
-                )
-                if len(q_result) < batch_size:
-                    done_with_collection = True
-            if done_with_collection:
-                q_result += irods_session.genquery2(
-                    f"SELECT {SELECT_COLUMS} "
-                    f"WHERE {MATCH_SUBCOLLECTIONS} LIMIT {batch_size} OFFSET {offset}"
-                )
+            # parentheses around OR statement, see issue #9016 in github.com/irods/irods
+            q_result = irods_session.genquery2(
+                f"SELECT {SELECT_COLUMS} "
+                f"WHERE (COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%') LIMIT {batch_size} OFFSET {offset}"
+            )
             for item in q_result:
                 if item_type == "data_object":
                     item_dict = {
