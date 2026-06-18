@@ -240,7 +240,7 @@ def fetch_all_irods_item_paths_for_subtree(
     SORT_EXPRESSION = ""  # no sorting for now, performance impact and consistency risk in batch processing
 
     q_result = irods_session.genquery2(
-        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%' {SORT_EXPRESSION}"
+        f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where (COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%') {SORT_EXPRESSION}"
     )
 
     total = int(q_result[0][0])
@@ -270,9 +270,10 @@ def fetch_all_irods_item_paths_for_subtree(
             iteration_items = []
             batch_total_size = 0
 
+            # parentheses around OR statement, see issue #9016 in github.com/irods/irods
             q_result = irods_session.genquery2(
                 f"SELECT {SELECT_COLUMS} "
-                f"WHERE COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%' LIMIT {batch_size} OFFSET {offset}"
+                f"WHERE (COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%') LIMIT {batch_size} OFFSET {offset}"
             )
             for item in q_result:
                 if item_type == "data_object":
