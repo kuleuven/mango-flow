@@ -93,7 +93,7 @@ def mango_flow_chord_chain(
 
     result = chord(chord_header_tasks, aggregate_signature).apply_async()
     logger.info(
-        f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks] }"
+        f"Chord chain completed for header actions {[head['name'] for head in header_tasks]} and aggregators {[agg['name'] for agg in aggregate_tasks]}"
     )
     return result
 
@@ -146,3 +146,15 @@ mango_flow.conf.redbeat_redis_options = {
 }
 
 mango_flow.conf.beat_schedule = beat_schedule
+
+# if a yaml file task_routes exists, load it and update the celery config
+task_routes_file = os.environ.get("MANGO_FLOW_TASK_ROUTES", None)
+if task_routes_file and os.path.exists(task_routes_file):
+    import yaml
+
+    with open(task_routes_file, "r") as f:
+        task_routes = yaml.safe_load(f)
+        # Should validate here the structure
+        mango_flow.conf.task_routes = task_routes
+
+    print(f"Loaded task_routes from {task_routes_file}: {task_routes}")
