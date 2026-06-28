@@ -119,6 +119,16 @@ mango_global_config_file_name = os.environ.get("MANGO_FLOW_GLOBAL_CONFIG", None)
 if mango_global_config_file_name:
     beat_schedule |= get_beat_configs_from_global_file(mango_global_config_file_name)
 
+task_routes_file = os.environ.get("MANGO_FLOW_TASK_ROUTES", None)
+if task_routes_file and os.path.exists(task_routes_file):
+    import yaml
+
+    with open(task_routes_file, "r") as f:
+        task_routes = yaml.safe_load(f)
+        # Should validate here the structure
+
+    logging.info(f"Loaded task_routes from {task_routes_file}: {task_routes}")
+
 
 mango_flow = Celery(
     main="mango_flow",
@@ -138,23 +148,13 @@ mango_flow = Celery(
     task_track_started=True,
     worker_send_task_events=True,
     task_send_sent_event=True,
+    task_routes=task_routes,
 )
 
 # specific for the redbeat scheduler
-mango_flow.conf.redbeat_redis_options = {
+mango_flow.conf.update(redbeat_redis_options={
     "retry_period": -1,
-}
+})
 
 mango_flow.conf.beat_schedule = beat_schedule
 
-# if a yaml file task_routes exists, load it and update the celery config
-task_routes_file = os.environ.get("MANGO_FLOW_TASK_ROUTES", None)
-if task_routes_file and os.path.exists(task_routes_file):
-    import yaml
-
-    with open(task_routes_file, "r") as f:
-        task_routes = yaml.safe_load(f)
-        # Should validate here the structure
-        mango_flow.conf.task_routes = task_routes
-
-    print(f"Loaded task_routes from {task_routes_file}: {task_routes}")
