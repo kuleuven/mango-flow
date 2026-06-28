@@ -119,6 +119,7 @@ mango_global_config_file_name = os.environ.get("MANGO_FLOW_GLOBAL_CONFIG", None)
 if mango_global_config_file_name:
     beat_schedule |= get_beat_configs_from_global_file(mango_global_config_file_name)
 
+task_routes = {}
 task_routes_file = os.environ.get("MANGO_FLOW_TASK_ROUTES", None)
 if task_routes_file and os.path.exists(task_routes_file):
     import yaml
