@@ -24,9 +24,12 @@ In your Python venv:
 
 `$ pip install -r requirements-mango-flow.txt`
 
-### Obtain API keys from NX
+### Obtain an API token with admin privileges 
 
-`$ data-platform-cli token --tier <t,q,p>`
+To do so, run:  
+`$ data-platform-cli token --sudo --tier <t,q,p>`
+
+This can be ran on your WSL if you have data-platform-cli installed, otherwise you can run it on NX.  
 
 ### copy the various startup scripts from src/plugins/mango_flow/bin and add the environment variables:
 
