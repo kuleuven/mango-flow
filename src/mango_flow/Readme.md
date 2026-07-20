@@ -42,7 +42,9 @@ Environment variables
 
 ```bash
 export MANGO_FLOW_GLOBAL_CONFIG=develop/<your-mango-flow-config>.yaml 
-export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be
+export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be 
+    # https://icts-q-coz-data-platform-api.cloud.q.icts.kuleuven.be for quality,
+    # https://icts-t-coz-data-platform-api.cloud.t.icts.kuleuven.be for test
 export API_TOKEN=<api token obtained from NX>
 ```
 
