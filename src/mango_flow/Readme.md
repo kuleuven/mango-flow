@@ -51,6 +51,13 @@ export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be
 export API_TOKEN=<api token obtained from NX>
 ```
 
+Later we will run a dedicated shell for each script.  
+Please mind that these environment variables need to be present in each of those shells.
+If you start duplicate shells with VScode, this is taken care of automatically.
+Otherwise, you can:  
+    A) Put these export statements in a separate script and use `source <script>` in each shell before starting the script.  
+    B) Put these export statements at the beginning of each of the scripts  
+
 ### Run redis   
 
 sudo systemctl start redis  
