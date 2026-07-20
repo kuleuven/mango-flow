@@ -48,6 +48,10 @@ export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be
 export API_TOKEN=<api token obtained from NX>
 ```
 
+### Run redis   
+
+sudo systemctl start redis  
+
 ### Run the 3 scripts above in dedicated shells
 
 And watch the ouput for errors
