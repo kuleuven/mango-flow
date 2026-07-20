@@ -88,7 +88,7 @@ u0123318_test_mf_ingest_copy:
   flow:
     mode: single
     action:
-      name: 'mango_flow.irods.ingest_copy_data_object'
+      name: 'mango_flow.irods.data_object.copy'
       parameters:
         path_regex: '/set/home/u0123318/test_mf/ingest/copy/{{dataobject}}'
         #dst_template: '/set/home/u0123318/test_mf/final/images/{{dataobject}}'
@@ -106,7 +106,7 @@ u0123318_test_chain:
   flow:
     mode: chain
     action:
-    - name: 'mango_flow.irods.ingest_move_data_object'
+    - name: 'mango_flow.irods.data_object.move'
       parameters:
         # client_user: u0123318 inherited if set with trigger
         path_regex: '/set/home/u0123318/test_mf/ingest/move/{{dataobject}}'
