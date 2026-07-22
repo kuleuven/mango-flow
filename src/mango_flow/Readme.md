@@ -24,9 +24,12 @@ In your Python venv:
 
 `$ pip install -r requirements-mango-flow.txt`
 
-### Obtain API keys from NX
+### Obtain an API token with admin privileges 
 
-`$ data-platform-cli token --tier <t,q,p>`
+To do so, run:  
+`$ data-platform-cli token --sudo --tier <t,q,p>`
+
+This can be ran on your WSL if you have data-platform-cli installed, otherwise you can run it on NX.  
 
 ### copy the various startup scripts from src/plugins/mango_flow/bin and add the environment variables:
 
@@ -42,9 +45,22 @@ Environment variables
 
 ```bash
 export MANGO_FLOW_GLOBAL_CONFIG=develop/<your-mango-flow-config>.yaml 
-export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be
+export API_URL=https://icts-p-coz-data-platform-api.cloud.icts.kuleuven.be 
+    # https://icts-q-coz-data-platform-api.cloud.q.icts.kuleuven.be for quality,
+    # https://icts-t-coz-data-platform-api.cloud.t.icts.kuleuven.be for test
 export API_TOKEN=<api token obtained from NX>
 ```
+
+Later we will run a dedicated shell for each script.  
+Please mind that these environment variables need to be present in each of those shells.
+If you start duplicate shells with VScode, this is taken care of automatically.
+Otherwise, you can:  
+    A) Put these export statements in a separate script and use `source <script>` in each shell before starting the script.  
+    B) Put these export statements at the beginning of each of the scripts  
+
+### Run redis   
+
+sudo systemctl start redis  
 
 ### Run the 3 scripts above in dedicated shells
 
@@ -72,7 +88,7 @@ u0123318_test_mf_ingest_copy:
   flow:
     mode: single
     action:
-      name: 'mango_flow.irods.ingest_copy_data_object'
+      name: 'mango_flow.irods.data_object.copy'
       parameters:
         path_regex: '/set/home/u0123318/test_mf/ingest/copy/{{dataobject}}'
         #dst_template: '/set/home/u0123318/test_mf/final/images/{{dataobject}}'
@@ -90,7 +106,7 @@ u0123318_test_chain:
   flow:
     mode: chain
     action:
-    - name: 'mango_flow.irods.ingest_move_data_object'
+    - name: 'mango_flow.irods.data_object.move'
       parameters:
         # client_user: u0123318 inherited if set with trigger
         path_regex: '/set/home/u0123318/test_mf/ingest/move/{{dataobject}}'
