@@ -26,5 +26,8 @@ dev = [
     "pytest>=8.4.2",
 ]
 
+[project.entry-points."mango.cli.plugins"]
+flow = "mango_flow.cli:register"
+
 [tool.uv.sources]
 mango-lib = { path = "../mango-lib", editable = true }
