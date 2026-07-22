@@ -185,7 +185,7 @@ def bulk_add_metadata(
             or (wipe_matching_unit and avu.units.startswith(unit_text))
         ]
         for m_name, m_value in metadata_items.items():
-            if m_value is list:
+            if isinstance(m_value, list):
                 avu_operations.extend(
                     [
                         AVUOperation(
@@ -196,7 +196,7 @@ def bulk_add_metadata(
                     ]
                 )
 
-            elif m_value is str:
+            elif isinstance(m_value, str):
                 avu_operations.append(
                     AVUOperation(
                         operation="add",
@@ -238,6 +238,9 @@ def fetch_all_irods_item_paths_for_subtree(
         else "DISTINCT COLL_NAME, COLL_MODIFY_TIME"
     )
     SORT_EXPRESSION = ""  # no sorting for now, performance impact and consistency risk in batch processing
+
+    previous_connection_timeout = irods_session.connection_timeout
+    irods_session.connection_timeout = 60 * 20
 
     q_result = irods_session.genquery2(
         f"SELECT COUNT(DISTINCT {COUNT_COLUMN}) where (COLL_NAME = '{subtree_path}' OR COLL_NAME like '{subtree_path}/%') {SORT_EXPRESSION}"
@@ -312,8 +315,8 @@ def fetch_all_irods_item_paths_for_subtree(
                             "batch_total_bytes": batch_total_size,
                             "total_processed": total_processed,
                             "total_bytes": total_size,
-                            "iteration_time": start_time_iteration - current_time,
-                            "total_time": start_time - current_time,
+                            "iteration_time": current_time - start_time_iteration,
+                            "total_time": current_time - start_time,
                         },
                         "status": "ITERATION_SUCCESS",
                     }
@@ -323,6 +326,7 @@ def fetch_all_irods_item_paths_for_subtree(
     finally:
         if local_file_name:
             item_file.close()
+        irods_session.connection_timeout = previous_connection_timeout
 
     return {
         "type": "file_jsonl" if local_file_name else "list",
