@@ -25,7 +25,7 @@ backend = os.environ.get("MANGO_FLOW_BACKEND", "redis://localhost:6379/1")
 for task_group in MANGO_FLOW_MODULES:
     # @todo: read the default package name from elsewhere, as it may be an installed package
     module = import_module(
-        task_group["module"], package=task_group.get("package", "plugins.mango_flow")
+        task_group["module"], package=task_group.get("package", "mango_flow")
     )
 
 

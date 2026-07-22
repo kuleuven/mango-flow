@@ -14,11 +14,8 @@ from irods.models import Collection, DataObject
 from irods.query import Query
 from irods.session import iRODSSession
 
-from .. import MangoFlowTask, get_zone_operator_session
-
-# from plugins.mango_flow.tasks.basic_operations import data_object_read_in_chunks
-
-# import zlib
+from .. import MangoFlowTask
+from mango_lib.irods.auth import get_zone_operator_session
 
 
 def get_data_object_paths_in_subtree(
