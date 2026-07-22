@@ -1,0 +1,25 @@
+[project]
+name = "mango-flow"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Paul Borgermans", email = "paul.borgermans@kuleuven.be" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "celery>=5.6.0",
+    "humanize>=4.13.0",
+    "jsonlines>=4.0.0",
+    "python-irodsclient>=3.2.0",
+    "pyyaml>=6.0.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
