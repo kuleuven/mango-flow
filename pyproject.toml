@@ -30,5 +30,10 @@ dev = [
 [project.entry-points."mango.cli.plugins"]
 flow = "mango_flow.cli:register"
 
+[project.optional-dependencies]
+exiftool = [
+    "pyexiftool>=0.5.6",
+]
+
 [tool.uv.sources]
 mango-lib = { path = "../mango-lib", editable = true }
