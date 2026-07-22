@@ -1,12 +1,9 @@
-import os
-from importlib import import_module
-
 import celery
 import irods.exception
 import jinja2
-from irods.collection import iRODSCollection
-from irods.data_object import iRODSDataObject
-from irods.meta import iRODSMeta
+import mango_lib.irods.auth
+from flask import Flask
+from mango_lib.jinja import MangoJinjaExtension
 
 
 class MangoFlowTask(celery.Task):
@@ -19,10 +16,10 @@ class MangoFlowTask(celery.Task):
 
 
 # ManGO Flow wide operator configuration
-zone_operator_module = import_module(
-    os.getenv("IRODS_ZONE_OPERATOR_MODULE", "plugins.operator")
-)
-get_zone_operator_session = zone_operator_module.get_zone_operator_session
+# fetched from ManGO Lib which in turn looks also for an ENV variable
+# to specify the specific implementation
+
+get_zone_operator_session = mango_lib.irods.auth.get_zone_operator_session
 
 
 # ManGO Flow wide jinja2 environment
@@ -33,6 +30,7 @@ MANGO_FLOW_JINJA2_ENVIRONMENT = jinja2.Environment(
     autoescape=jinja2.select_autoescape(default=False, default_for_string=False),
     trim_blocks=True,
     lstrip_blocks=True,
+    extensions=[MangoJinjaExtension],
 )
 
 
@@ -41,17 +39,9 @@ def mf_apply_jinja2_template(dest_template: str, **variables):
     return MANGO_FLOW_JINJA2_ENVIRONMENT.from_string(dest_template).render(**variables)
 
 
-# custom Jinja2 filters
+def init_app(app: Flask):
+    """Initialize the ManGO Flow application with the given Flask app instance."""
+    # Import and register blueprints, extensions, or any other initialization code here
+    from .flask.report import mango_flow_report_bp
 
-
-def get_one_irods_metadata(
-    irods_item: iRODSDataObject | iRODSCollection, metadata_name, default_value=None
-):
-    try:
-        avu: iRODSMeta = irods_item.metadata.get_one(metadata_name)
-        return avu.value if avu else default_value
-    except Exception:
-        return default_value  # iRODSMeta(metadata_name, default_value)
-
-
-MANGO_FLOW_JINJA2_ENVIRONMENT.filters["get_one_irods_metadata"] = get_one_irods_metadata
+    app.register_blueprint(mango_flow_report_bp)
