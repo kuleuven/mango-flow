@@ -185,7 +185,7 @@ def bulk_add_metadata(
             or (wipe_matching_unit and avu.units.startswith(unit_text))
         ]
         for m_name, m_value in metadata_items.items():
-            if m_value is list:
+            if isinstance(m_value, list):
                 avu_operations.extend(
                     [
                         AVUOperation(
@@ -196,7 +196,7 @@ def bulk_add_metadata(
                     ]
                 )
 
-            elif m_value is str:
+            elif isinstance(m_value, str):
                 avu_operations.append(
                     AVUOperation(
                         operation="add",
