@@ -7,7 +7,7 @@ from irods.session import iRODSSession
 
 from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_template
 from ..lib.patterns import mango_flow_regex_search_path
-from ..lib.util import read_yaml_from_data_object, get_irods_item
+from ..lib.util import get_irods_item, read_yaml_from_data_object
 
 """Two possible approaches:
 

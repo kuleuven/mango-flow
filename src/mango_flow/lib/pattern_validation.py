@@ -1,7 +1,8 @@
 import pathlib
 import re
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Optional
 
 import jinja2
 from irods.session import iRODSSession
@@ -16,7 +17,7 @@ class Pattern:
 
     def __init__(
         self,
-        pattern: Optional[str] = r".*/(?P<filename>[\w.]+)",
+        pattern: str = r".*/(?P<filename>[\w.]+)",
         additional_validation: Optional[list[Callable]] = None,
         destination_pattern: Optional[str] = "{{filename}}",
         jinja_environment: Optional[jinja2.Environment] = None,

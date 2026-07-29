@@ -5,13 +5,11 @@ import tempfile
 
 import multidict
 from celery import shared_task
-from irods.collection import iRODSCollection
-from irods.data_object import iRODSDataObject
-from irods.meta import AVUOperation, iRODSMeta
-from irods.session import iRODSSession
-from .. import get_zone_operator_session, MangoFlowTask
+
+from .. import MangoFlowTask, get_zone_operator_session
 from ..lib.patterns import mango_flow_regex_search, translate_mango_moustache_regex
 from ..lib.util import bulk_add_metadata
+
 logger = logging.getLogger(__name__)
 
 

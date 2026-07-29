@@ -1,9 +1,9 @@
-from celery.result import AsyncResult
 import celery.states
-from flask import Blueprint, render_template, make_response
+from celery.result import AsyncResult
+from flask import Blueprint, make_response, render_template
 
-from ..mango_flow_app import mango_flow
 from ..lib.report import TaskProgressPart
+from ..mango_flow_app import mango_flow
 
 MF_UNREADY_STATES = set(celery.states.UNREADY_STATES)
 MF_UNREADY_STATES.add(

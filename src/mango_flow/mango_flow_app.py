@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# This app should be launched from the Mango Portal project root, it contains the ManGO Flow Celery app
-
 import logging
 import os
 from importlib import import_module

@@ -1,8 +1,7 @@
-from celery import shared_task
-from irods.session import iRODSSession
-from irods.exception import DataObjectDoesNotExist
-import json
 import pathlib
+
+from celery import shared_task
+
 from .. import get_zone_operator_session
 
 # @shared_task(name="mango_flow.irods.report.path.results.json", bind=True)
