@@ -3,7 +3,6 @@ import itertools
 import operator
 import os
 import pathlib
-import tarfile
 import time
 import zipfile
 

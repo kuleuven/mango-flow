@@ -55,7 +55,7 @@ class MFChordFlow(BaseModel):
 class MFBeatFlow(BaseModel):
     trigger: MFTrigger
     match: MFMatch
-    flow: list[MFSingleFlow | MFChordFlow | MFChainFlow] = Field(discriminator="mode")
+    flow: MFSingleFlow | MFChordFlow | MFChainFlow = Field(discriminator="mode")
 
 
 #########################################################################################

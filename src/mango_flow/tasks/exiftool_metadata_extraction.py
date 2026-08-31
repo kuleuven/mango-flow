@@ -3,7 +3,6 @@ import logging
 import pathlib
 import re
 import tempfile
-from typing import Optional
 
 from celery import shared_task
 from exiftool import ExifToolHelper

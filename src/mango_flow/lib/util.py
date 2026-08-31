@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 import os
 import pathlib
@@ -13,8 +12,7 @@ from irods.collection import iRODSCollection
 from irods.data_object import iRODSDataObject
 from irods.meta import AVUOperation, iRODSMeta
 from irods.session import iRODSSession
-
-from .. import get_zone_operator_session
+from mango_lib.irods.auth import get_zone_operator_session
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +112,7 @@ def load_yaml_config(
 
 def get_irods_item(
     irods_session: iRODSSession, path: str
-) -> typing.Union[iRODSDataObject, iRODSCollection, None]:
+) -> iRODSDataObject | iRODSCollection | None:
     """
     Get an iRODS data object or collection by its path.
     Returns None if the item does not exist.
@@ -130,8 +128,8 @@ def get_irods_item(
 
 def filter_metadata_dict(
     metadata: dict,
-    allowed: typing.Optional[list] = [],
-    blacklist: typing.Optional[list] = [],
+    allowed: list | None = None,
+    blacklist: list | None = None,
 ) -> dict:
     """
     Filter metadata dictionary based on allowed and blacklist regexes.
@@ -143,6 +141,11 @@ def filter_metadata_dict(
     """
 
     # if there are no criteria, treat it as allowed
+    if allowed is None:
+        allowed = []
+    if blacklist is None:
+        blacklist = []
+
     if not allowed and not blacklist:
         return metadata
 
