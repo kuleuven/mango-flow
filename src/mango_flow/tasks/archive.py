@@ -3,7 +3,6 @@ import itertools
 import operator
 import os
 import pathlib
-import tarfile
 import time
 import zipfile
 
@@ -13,12 +12,9 @@ from irods.data_object import iRODSDataObject
 from irods.models import Collection, DataObject
 from irods.query import Query
 from irods.session import iRODSSession
+from mango_lib.irods.auth import get_zone_operator_session
 
-from .. import MangoFlowTask, get_zone_operator_session
-
-# from plugins.mango_flow.tasks.basic_operations import data_object_read_in_chunks
-
-# import zlib
+from .. import MangoFlowTask
 
 
 def get_data_object_paths_in_subtree(

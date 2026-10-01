@@ -10,6 +10,7 @@ from irods.data_object import iRODSDataObject
 from irods.exception import CollectionDoesNotExist
 from irods.meta import AVUOperation
 from irods.session import iRODSSession
+
 from .. import MangoFlowTask, get_zone_operator_session, mf_apply_jinja2_template
 from ..lib.patterns import (
     mango_flow_regex_search_path,

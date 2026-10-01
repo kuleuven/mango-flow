@@ -1,6 +1,6 @@
-import yaml
 import pathlib
-from celery.schedules import crontab, schedule, solar
+
+import yaml
 
 
 def parse_global_config_yaml(global_config_file: pathlib.Path) -> dict | bool:

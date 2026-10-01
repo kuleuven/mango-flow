@@ -1,25 +1,19 @@
-from celery import shared_task, current_app, Celery, signature
-from celery.canvas import group, chain, chunks
-from .irods_watcher import get_modified_data_object_paths, get_modified_collection_paths
+import datetime
+import hashlib
+import pathlib
+import zoneinfo
+
+from celery import Celery, current_app, shared_task, signature
+from irods.column import Criterion, Like
+from irods.meta import iRODSMeta
+from irods.models import Collection, CollectionMeta, DataObject
+from irods.session import iRODSSession
 
 # from .extract_metadata import wrap_extract_metadata_from_path
-from plugins.operator import get_zone_operator_session
-from irods.meta import iRODSMeta
-import pathlib
-import datetime
-import zoneinfo
-import hashlib
+from mango_lib.irods.auth import get_zone_operator_session
 
 from . import MangoFlowTask
-
-from irods.session import iRODSSession
-from irods.data_object import iRODSDataObject
-from irods.collection import iRODSCollection
-from irods.meta import iRODSMeta
-
-from irods.query import Query
-from irods.column import Criterion, Like
-from irods.models import Collection, DataObject, DataObjectMeta, CollectionMeta
+from .irods_watcher import get_modified_collection_paths, get_modified_data_object_paths
 
 
 def search_metadata_collection(

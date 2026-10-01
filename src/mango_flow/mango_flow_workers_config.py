@@ -1,5 +1,5 @@
-from .lib.validation import MFTasksYamlImportConfig
 from .lib.util import load_yaml_config
+from .lib.validation import MFTasksYamlImportConfig
 
 MANGO_FLOW_MODULES = []  # put it in the global scope
 

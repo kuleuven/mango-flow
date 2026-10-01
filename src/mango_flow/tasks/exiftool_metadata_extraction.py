@@ -3,13 +3,13 @@ import logging
 import pathlib
 import re
 import tempfile
-from typing import Optional
 
 from celery import shared_task
 from exiftool import ExifToolHelper
 from irods.session import iRODSSession
-from ..lib.util import bulk_add_metadata, filter_metadata_dict
+
 from .. import get_zone_operator_session
+from ..lib.util import bulk_add_metadata, filter_metadata_dict
 
 logger = logging.getLogger(__name__)
 

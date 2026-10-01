@@ -5,7 +5,7 @@ mostly using Pydantic
 @todo rename this module to validation_models instead
 """
 
-from typing import Dict, List, Literal, Optional, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -16,20 +16,20 @@ from pydantic import BaseModel, Field, RootModel
 
 class MFAction(BaseModel):
     name: str
-    parameters: Dict
+    parameters: dict
 
 
 class MFBeat(BaseModel):
     task: str
     schedule: int | str
-    monitoring_offset: Optional[int] = None
-    client_user: Optional[str] = None
-    path_input_mode: Optional[str] = "single"
+    monitoring_offset: int | None = None
+    client_user: str | None  = None
+    path_input_mode: str = "single"
 
 
 class MFMatch(BaseModel):
     subtree: str
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 class MFTrigger(BaseModel):
@@ -43,19 +43,19 @@ class MFSingleFlow(BaseModel):
 
 class MFChainFlow(BaseModel):
     mode: Literal["chain"]
-    actions: List[MFAction]
+    actions: list[MFAction]
 
 
 class MFChordFlow(BaseModel):
     mode: Literal["chord"]
-    header_actions: List[MFAction]
-    aggregate_actions: List[MFAction]
+    header_actions: list[MFAction]
+    aggregate_actions: list[MFAction]
 
 
 class MFBeatFlow(BaseModel):
     trigger: MFTrigger
     match: MFMatch
-    flow: Union[MFSingleFlow, MFChordFlow, MFChainFlow] = Field(discriminator="mode")
+    flow: MFSingleFlow | MFChordFlow | MFChainFlow = Field(discriminator="mode")
 
 
 #########################################################################################
@@ -65,10 +65,10 @@ class MFBeatFlow(BaseModel):
 
 class MFTaskImport(BaseModel):
     module: str
-    package: Optional[str] = None
+    package: str | None = None
 
 
-class MFTasksYamlImportConfig(RootModel[List[MFTaskImport]]):
+class MFTasksYamlImportConfig(RootModel[list[MFTaskImport]]):
     """
     A model to validate the YAML configuration for Mango Flow tasks.
     The root is a list of individual imports as a flat dict.
