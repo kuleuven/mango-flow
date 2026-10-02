@@ -2,6 +2,12 @@
 
 ## Installation for development
 
+The instructions below are for the non-refactored version
+
+Refer to the repository https://gitea.icts.kuleuven.be/foz/mango-flow-instance
+
+
+
 ### Dependencies
 
 redis server, python celery and friends
