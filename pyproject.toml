@@ -1,6 +1,6 @@
 [project]
 name = "mango-flow"
-version = "0.2.1"
+version = "0.2.2"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -39,4 +39,4 @@ exiftool = [
 ]
 
 [tool.uv.sources]
-mango-lib = { path = "../mango-lib", editable = true }
+mango-lib = { git = "https://github.com/kuleuven/mango-lib", branch = "development" }
